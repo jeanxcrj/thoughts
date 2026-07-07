@@ -76,13 +76,14 @@
     font-family: "Satoshi", -apple-system, "Helvetica Neue", Arial, sans-serif;
   }
   #sidebar .sb-head {
-    width: 40px; height: 4px; border-radius: 2px;
-    background: #2b2b2b; margin-bottom: 24px;
+    display: inline-block;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    font-weight: 700; color: #9a9a94;
+    margin-bottom: 16px;
     cursor: pointer; pointer-events: auto;
-    transition: width 0.28s ease, opacity 0.2s ease;
+    transition: color 0.2s ease;
   }
-  #sidebar .sb-head:hover { opacity: 0.65; }
-  #sidebar.collapsed .sb-head { width: 22px; }
+  #sidebar .sb-head:hover { color: #2b2b2b; }
   #sb-list {
     transition: opacity 0.3s ease, transform 0.3s ease;
   }
@@ -91,9 +92,9 @@
     pointer-events: none; visibility: hidden;
   }
   #sidebar .sb-item {
-    padding: 9px 0;
+    padding: 3px 0;
     cursor: pointer; pointer-events: auto;
-    font-size: 14.5px; font-weight: 500; line-height: 1.4;
+    font-size: 14.5px; font-weight: 500; line-height: 1.28;
     color: #b6b6b0;
     transition: color 0.18s ease, transform 0.18s ease;
   }
@@ -101,9 +102,9 @@
   #sidebar .sb-item.placeholder { color: #d8d8d3; }
   #sidebar .sb-item.placeholder:hover { color: #b6b6b0; }
   #sidebar .sb-empty {
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
     color: #cfcfca; font-weight: 500;
-    margin: 20px 0 6px;
+    margin: 16px 0 5px;
   }
 
   /* ---------------- writings: a clean centered card ---------------- */
@@ -1065,17 +1066,14 @@ function unfocus() {
   const head = document.getElementById('sb-head');
   const list = document.getElementById('sb-list');
 
-  // the dark bar collapses / expands the list
+  head.textContent = 'Writings';
   head.addEventListener('click', () => {
     const collapsed = sidebar.classList.toggle('collapsed');
-    head.title = collapsed ? 'Show writings' : 'Collapse';
     if (collapsed) unfocus();
   });
 
-  // real writings first (in pole order), placeholders greyed at the bottom
+  // only real writings, in pole order
   const written = signs.filter((s) => s.post && !s.post.placeholder);
-  const empty = signs.filter((s) => s.post && s.post.placeholder);
-
   for (const sign of written) {
     const item = document.createElement('div');
     item.className = 'sb-item';
@@ -1084,22 +1082,6 @@ function unfocus() {
     item.addEventListener('mouseleave', unfocus);
     item.addEventListener('click', () => openPage(sign.post));
     list.appendChild(item);
-  }
-  if (empty.length) {
-    const label = document.createElement('div');
-    label.className = 'sb-empty';
-    label.textContent = 'coming soon';
-    list.appendChild(label);
-    for (const sign of empty) {
-      const item = document.createElement('div');
-      item.className = 'sb-item placeholder';
-      item.textContent = sign.post.mount
-        ? sign.post.mount.replace(/^the /, '').replace(/\b\w/g, (c) => c.toUpperCase())
-        : 'Untitled';
-      item.addEventListener('mouseenter', () => focusOn(sign));
-      item.addEventListener('mouseleave', unfocus);
-      list.appendChild(item);
-    }
   }
 }
 // drag the corner grip to resize the modal
