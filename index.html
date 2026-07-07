@@ -715,15 +715,6 @@ function addClampRing(y, extraBolt = true) {
 
 /* ------------------------------- mounting --------------------------------- */
 const signs = []; // { pivot, group, baseRotZ, wobble, wobbleVel }
-const dots = [];
-const dotMat = new THREE.MeshStandardMaterial({
-  color: 0xe8452c,
-  emissive: 0xff5540,
-  emissiveIntensity: 0.45,
-  roughness: 0.35,
-  metalness: 0.1,
-});
-const DOT_GEO = new THREE.SphereGeometry(0.034, 20, 16);
 
 function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY = 0, post = null }) {
   // pivot sits on the pole axis; sign extends along local +z
@@ -770,16 +761,6 @@ function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY
   const plate = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.02), armMat);
   plate.position.z = -0.01;
   group.add(plate);
-
-  // a small red dot marks the signs that actually hold a writing
-  if (post && !post.placeholder) {
-    const dot = new THREE.Mesh(DOT_GEO, dotMat);
-    const baseY = (group.userData.topY ?? (group.userData.halfWidth || 0.4)) + 0.06;
-    dot.position.set(0, baseY, SIGN_T / 2);
-    dot.castShadow = true;
-    group.add(dot);
-    dots.push({ dot, baseY, phase: rand() * Math.PI * 2 });
-  }
 
   signs.push({ pivot, assembly, holder, group, post, height, angleDeg, wobble: 0, wobbleVel: 0, phase: rand() * Math.PI * 2 });
   return pivot;
@@ -997,9 +978,6 @@ function animate() {
   });
 
   // wobble springs + faint idle sway
-  for (const d of dots) {
-    d.dot.position.y = d.baseY + Math.sin(t * 2.2 + d.phase) * 0.014;
-  }
 
   for (const s of signs) {
     const stiffness = 26, damping = 4.2;
