@@ -6,6 +6,8 @@
 <title>thoughts · Jean Chen</title>
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="apple-touch-icon" href="favicon.png" />
+<link rel="preconnect" href="https://api.fontshare.com" />
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; overflow: hidden; background: #f6f6f3; }
@@ -64,6 +66,47 @@
     transition: opacity 0.8s ease;
   }
   #loader.done { opacity: 0; pointer-events: none; }
+
+  /* ---------------- left sidebar: minimal article index (Satoshi) ---------------- */
+  #sb-toggle {
+    position: fixed; top: 26px; left: 28px; z-index: 22;
+    display: inline-flex; flex-direction: column; gap: 4px;
+    padding: 4px; cursor: pointer; user-select: none;
+  }
+  #sb-toggle span { width: 22px; height: 2px; background: #2b2b2b; border-radius: 2px; transition: transform 0.3s ease, opacity 0.2s ease; }
+  body.sb-open #sb-toggle span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  body.sb-open #sb-toggle span:nth-child(2) { opacity: 0; }
+  body.sb-open #sb-toggle span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+  #sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 21;
+    width: 300px; max-width: 80vw;
+    background: #fbfbf9;
+    transform: translateX(-101%);
+    transition: transform 0.42s cubic-bezier(0.4, 0, 0.15, 1);
+    padding: 78px 34px 28px;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    font-family: "Satoshi", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  body.sb-open #sidebar { transform: translateX(0); }
+  #sidebar .sb-head {
+    width: 40px; height: 4px; border-radius: 2px;
+    background: #2b2b2b; margin-bottom: 30px;
+  }
+  #sidebar .sb-item {
+    padding: 11px 0;
+    cursor: pointer;
+    font-size: 15px; font-weight: 500; line-height: 1.4;
+    color: #bdbdb8;
+    transition: color 0.18s ease, transform 0.18s ease;
+  }
+  #sidebar .sb-item:hover { color: #2b2b2b; transform: translateX(4px); }
+  #sidebar .sb-item.placeholder { color: #dcdcd7; cursor: default; }
+  #sidebar .sb-item.placeholder:hover { color: #dcdcd7; transform: none; }
+  #sidebar .sb-empty {
+    font-size: 13px; color: #cfcfca; font-weight: 400;
+  }
 
   /* ---------------- writings: a clean centered card ---------------- */
   #page {
@@ -176,6 +219,12 @@
 <body>
 <div id="app"></div>
 <div id="loader"></div>
+
+<div id="sb-toggle"><span></span><span></span><span></span></div>
+<nav id="sidebar">
+  <div class="sb-head"></div>
+  <div id="sb-list"></div>
+</nav>
 
 <div id="page">
   <div class="modal" id="plaque">
@@ -916,6 +965,7 @@ for (const item of composition) {
     post: item.post,
   });
 }
+// signs array is now populated in composition order, matching the sidebar
 
 // A few extra bare clamp rings so the pole reads like real street furniture.
 addClampRing(0.45, false);
@@ -995,7 +1045,67 @@ function openPage(post) {
 function closePage() {
   pageEl.classList.remove('open');
   pageOpen = false;
-  controls.autoRotate = true;
+  if (!sidebarOpen) controls.autoRotate = true;
+}
+
+/* ---------------------------- left sidebar ---------------------------- */
+// hovering a title eases the view around to face that sign and nudges it
+const _sph = new THREE.Spherical();
+let focusSign = null;
+let sidebarOpen = false;
+
+function focusOn(sign) {
+  focusSign = sign;
+  controls.autoRotate = false;
+  sign.wobbleVel += 2.6 + rand(); // give it a little nudge
+}
+function unfocus() {
+  focusSign = null;
+  if (!pageOpen && !sidebarOpen) controls.autoRotate = true;
+}
+
+{
+  const toggle = document.getElementById('sb-toggle');
+  const list = document.getElementById('sb-list');
+
+  const setOpen = (open) => {
+    sidebarOpen = open;
+    document.body.classList.toggle('sb-open', open);
+    controls.autoRotate = !open && !pageOpen;
+    if (!open) focusSign = null;
+  };
+  toggle.addEventListener('click', () => setOpen(!sidebarOpen));
+
+  // real writings first (in pole order), placeholders greyed at the bottom
+  const written = signs.filter((s) => s.post && !s.post.placeholder);
+  const empty = signs.filter((s) => s.post && s.post.placeholder);
+
+  for (const sign of written) {
+    const item = document.createElement('div');
+    item.className = 'sb-item';
+    item.textContent = sign.post.title;
+    item.addEventListener('mouseenter', () => focusOn(sign));
+    item.addEventListener('mouseleave', unfocus);
+    item.addEventListener('click', () => { setOpen(false); openPage(sign.post); });
+    list.appendChild(item);
+  }
+  if (empty.length) {
+    const label = document.createElement('div');
+    label.className = 'sb-empty';
+    label.style.margin = '22px 0 4px';
+    label.textContent = 'coming soon';
+    list.appendChild(label);
+    for (const sign of empty) {
+      const item = document.createElement('div');
+      item.className = 'sb-item placeholder';
+      item.textContent = sign.post.mount
+        ? sign.post.mount.replace(/^the /, '').replace(/\b\w/g, (c) => c.toUpperCase())
+        : 'Untitled';
+      item.addEventListener('mouseenter', () => focusOn(sign));
+      item.addEventListener('mouseleave', unfocus);
+      list.appendChild(item);
+    }
+  }
 }
 // drag the corner grip to resize the modal
 {
@@ -1112,6 +1222,21 @@ function animate() {
   // hard-anchor the orbit target to the pole axis so the pole never leans
   controls.target.x = 0;
   controls.target.z = 0;
+
+  // ease the view to face a hovered sidebar sign
+  if (focusSign) {
+    const off = camera.position.clone().sub(controls.target);
+    _sph.setFromVector3(off);
+    const wantTheta = (focusSign.angleDeg * Math.PI) / 180;
+    let dT = wantTheta - _sph.theta;
+    dT = Math.atan2(Math.sin(dT), Math.cos(dT)); // shortest way around
+    _sph.theta += dT * Math.min(1, dt * 2.6);
+    off.setFromSpherical(_sph);
+    camera.position.copy(controls.target).add(off);
+    const wantY = THREE.MathUtils.clamp(focusSign.height, 1.2, 6.2);
+    controls.target.y += (wantY - controls.target.y) * Math.min(1, dt * 2.6);
+  }
+
   controls.update();
   renderer.render(scene, camera);
 }
