@@ -141,7 +141,8 @@
   .pill.gray   { background: #f1f1ef; color: #6b6b66; }
 
   .pg-content { font-size: 16px; line-height: 1.75; color: #37352f; }
-  .pg-content p { margin-bottom: 14px; }
+  .pg-content p { margin-bottom: 14px; white-space: pre-line; }
+  .pg-content .quote { white-space: pre-line; }
   .pg-content h2 { font-size: 21px; font-weight: 700; margin: 24px 0 8px; letter-spacing: -0.01em; }
   .pg-content .quote {
     border-left: 3px solid #37352f; padding-left: 14px;
@@ -799,6 +800,37 @@ const soon = (icon, mount) => ({
 });
 
 const WRITINGS = {
+  purpose: {
+    icon: '🧭', title: `CH3: What Purpose do we Assign Ourselves as "Designers?"`,
+    date: 'July 7, 2026', mount: 'the arrow disc', tags: [['design', 'peri'], ['life', 'lime'], ['reflection', 'lilac']],
+    blocks: [
+      { t: 'p', x: `We were each handed a small piece of paper, printed on both sides with two questions: What is design? and What is your purpose as a designer? A few classes later, our responses appeared on the big projector.
+It was powerful.` },
+      { t: 'quote', x: `"I want to fix things I don't like."
+"I want to empower the disabled."
+"I want to design things that make others happy."` },
+      { t: 'p', x: `The answers were wide-ranging: bold, vulnerable, imaginative. They were brave and unfiltered, drawn from somewhere personal. No two were alike, and that was the beauty of it.` },
+      { t: 'p', x: `To be honest, I don't even remember exactly what I wrote. Something about designing within whatever scale I'm capable of reaching. But looking back now, just over two months later, I realize how much these answers, like design itself, are always shifting. They were just reflections of who we are in that particular moment.` },
+      { t: 'p', x: `And so, I've come to believe that our purpose as designers isn't a single, static truth. It's something we grow into; something that grows with us.` },
+      { t: 'h2', x: `Design Before I Had the Word For It` },
+      { t: 'p', x: `When I try to pinpoint where "design" started for me, I don't think of a grand moment or a big revelation. I think of a Google Slides file: Grade 7 yearbook. Cute. Small-scale. Wholesome. Back then, I didn't even want to be a designer. I didn't know what Figma, Adobe Illustrator, InDesign, or Photoshop are. It was me, a few other girls, and our Google Slides file. And our purpose was simply to capture the tiny, fleeting sweetness of our final year in elementary school. There were no grids, no colour theory. Just a bunch of pictures, clipart, and inside jokes thrown together to preserve a moment in time. I didn't know it then, but that was my first act of designing with purpose, of using visuals to preserve feeling.` },
+      { t: 'p', x: `In high school, the scope widened. I began creating posters, icons, and merchandise for clubs, councils, and various events. Hallway walls, Instagram pages, club banners; traces of my work could be seen everywhere.` },
+      { t: 'p', x: `At the time, I wasn't thinking, This is my career path. In grade 8, I wanted to go into business, partly because both my parents are entrepreneurs, and I admired their boldness, their vision. In grades 9 and 10, I fell in love with animation. I watched short films on YouTube, dreaming of creating worlds that moved and breathed. By the end of grade 11, I veered again, this time toward visual arts. Although I couldn't quite see where I will be in 5 years, I knew making designs for the school made me happy, and it made people around me happy as well. I was connecting clubs with students, students with school spirit, and design with purpose, even if I didn't call it that yet.` },
+      { t: 'p', x: `By the time I was in Grade 12, I became Editor-in-Chief of our high school yearbook.
+"It really came full circle," I thought to myself.` },
+      { t: 'p', x: `The Editor in Chief of my high school's yearbook entailed much more responsibility. I coordinated a team, ran weekly meetings, organized workflows, and set deadlines. I worked closely with our sponsor teacher, communicated with administrators, and served as the main point of contact for the yearbook publishing company. It felt surreal. Just a few years earlier, I was dragging clipart into a Google Slides file with no real sense of what design even was. And now, here I was, leading a team, balancing deadlines, making calls to publishers, and helping shape something that would outlast our time in those hallways. It did come full circle. That's when I started to understand that maybe this was something I could grow into.` },
+      { t: 'p', x: `But even then, I didn't really see myself as a "designer."` },
+      { t: 'p', x: `Throughout high school, my purpose, even without knowing or calling it that, was to impact the school community positively. I wanted to create things that made people stop, smile, and feel understood. Whether it was a grad hoodie design that became part of someone's daily outfit or a poster that got a student to join a club, I designed to contribute.` },
+      { t: 'p', x: `I realized that what I had been doing all those years, creating things for people I cared about, was design. It had always been design.` },
+      { t: 'p', x: `Getting into the School of Design at Carnegie Mellon was the first time I was asked to think critically about what design is. Suddenly, I was surrounded by people who saw design as more than a tool: it became a system, a framework, a way of thinking. We talked about human-centred processes, real-life problems, iterative testing, and ethical responsibility. And I started to see that design is not always about making things new. Sometimes it's about making what already exists clearer, kinder, or more livable. My purpose started to shift. I wasn't just here to create beautiful things or be the "go-to designer" for others. I wanted to build things that helped people tell their stories, that connected people, that inspired play and made others smile.` },
+      { t: 'p', x: `Right now, my purpose is to use design as a tool for connection. To design systems that reduce anxiety instead of creating more of it. And I know this will keep changing. My purpose is something I re-evaluate with every project, every critique, and every person I collaborate with.` },
+      { t: 'quote', x: `In Grade 7, my purpose was to help my classmates remember.
+In high school, it was to lead, organize, and create a sense of belonging.
+Now, it's about building systems and stories that serve people more deeply.` },
+      { t: 'p', x: `To slow down in our fast-paced world. Design has been with me the whole time, in how I've chosen to contribute.
+And the purpose? It's never just been about what I make, but about why I keep making. I believe that as long as I keep listening, adjusting, and growing, that purpose will keep unfolding with me.` },
+    ],
+  },
   isitart: {
     icon: '🖼', title: 'But, is it Art?',
     date: 'April 15, 2025', mount: 'the no-entry disc', tags: [['design', 'peri'], ['reflection', 'lilac'], ['school', 'gray']],
@@ -837,7 +869,6 @@ const WRITINGS = {
   molt: soon('🐍', 'the EXIT 12 panel'),
   tender: soon('🌱', 'the 7% triangle'),
   middle: soon('🛣', 'the KM 42 marker'),
-  doorhandles: soon('🚪', 'the arrow disc'),
   liquidmetal: soon('🏗', 'the P square'),
   manifesto: soon('🚧', 'the warning triangle'),
 };
@@ -863,7 +894,7 @@ const composition = [
   { build: () => buildRectSign(1.5, 0.5, artExitGreen()),                   h: 2.78, post: WRITINGS.molt },
   { build: () => buildTriangleSign(0.9, artYield()),                        h: 2.25, post: WRITINGS.tender },
   { build: () => buildRectSign(0.48, 1.3, artKilometer()),                  h: 1.75, post: WRITINGS.middle },
-  { build: () => buildCircleSign(0.38, artMandatoryUp()),                   h: 1.15, post: WRITINGS.doorhandles },
+  { build: () => buildCircleSign(0.38, artMandatoryUp()),                   h: 1.15, post: WRITINGS.purpose },
   { build: () => buildRectSign(0.68, 0.68, artParking()),                   h: 0.72, post: WRITINGS.liquidmetal },
 ];
 
