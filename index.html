@@ -613,6 +613,7 @@ function buildRectSign(w, h, canvas) {
     g.add(bar);
   }
   g.userData.halfWidth = w / 2;
+  g.userData.topY = h / 2 + FRAME_W;
   return g;
 }
 
@@ -638,6 +639,7 @@ function buildCircleSign(r, canvas) {
   rim.receiveShadow = true;
   g.add(rim);
   g.userData.halfWidth = r;
+  g.userData.topY = r + 0.045;
   return g;
 }
 
@@ -670,6 +672,8 @@ function buildShapeSign(shape, halfW, canvas) {
   g.add(tube);
 
   g.userData.halfWidth = halfW;
+  faceGeo.computeBoundingBox();
+  g.userData.topY = faceGeo.boundingBox.max.y + 0.04;
   return g;
 }
 function buildTriangleSign(size, canvas) {
@@ -711,22 +715,15 @@ function addClampRing(y, extraBolt = true) {
 
 /* ------------------------------- mounting --------------------------------- */
 const signs = []; // { pivot, group, baseRotZ, wobble, wobbleVel }
-const glows = [];
-
-const glowTexture = (() => {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(128, 128, 20, 128, 128, 126);
-  grad.addColorStop(0, 'rgba(124, 102, 223, 0.75)');
-  grad.addColorStop(0.55, 'rgba(143, 143, 224, 0.32)');
-  grad.addColorStop(1, 'rgba(143, 143, 224, 0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-})();
+const dots = [];
+const dotMat = new THREE.MeshStandardMaterial({
+  color: 0xe8452c,
+  emissive: 0xff5540,
+  emissiveIntensity: 0.45,
+  roughness: 0.35,
+  metalness: 0.1,
+});
+const DOT_GEO = new THREE.SphereGeometry(0.034, 20, 16);
 
 function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY = 0, post = null }) {
   // pivot sits on the pole axis; sign extends along local +z
@@ -774,20 +771,14 @@ function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY
   plate.position.z = -0.01;
   group.add(plate);
 
-  // a breathing halo marks the signs that actually hold a writing
+  // a small red dot marks the signs that actually hold a writing
   if (post && !post.placeholder) {
-    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: glowTexture,
-      transparent: true,
-      depthWrite: false,
-      opacity: 0.55,
-    }));
-    const r = (group.userData.halfWidth || 0.5) * 3.4;
-    halo.scale.set(r, r, 1);
-    halo.position.z = -0.02;
-    halo.renderOrder = -1;
-    holder.add(halo);
-    glows.push({ halo, phase: rand() * Math.PI * 2 });
+    const dot = new THREE.Mesh(DOT_GEO, dotMat);
+    const baseY = (group.userData.topY ?? (group.userData.halfWidth || 0.4)) + 0.06;
+    dot.position.set(0, baseY, SIGN_T / 2);
+    dot.castShadow = true;
+    group.add(dot);
+    dots.push({ dot, baseY, phase: rand() * Math.PI * 2 });
   }
 
   signs.push({ pivot, assembly, holder, group, post, height, angleDeg, wobble: 0, wobbleVel: 0, phase: rand() * Math.PI * 2 });
@@ -1006,8 +997,8 @@ function animate() {
   });
 
   // wobble springs + faint idle sway
-  for (const gl of glows) {
-    gl.halo.material.opacity = 0.55 + Math.sin(t * 1.8 + gl.phase) * 0.25;
+  for (const d of dots) {
+    d.dot.position.y = d.baseY + Math.sin(t * 2.2 + d.phase) * 0.014;
   }
 
   for (const s of signs) {
