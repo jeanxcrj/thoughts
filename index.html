@@ -95,9 +95,18 @@
     display: flex; align-items: center; gap: 11px;
     padding: 3px 12px 3px 0;
     cursor: pointer; pointer-events: auto;
-    font-size: 10px; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em;
+    font-size: 12px; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em;
     color: #a7a7a1;
     transition: color 0.18s ease;
+    opacity: 0;                       /* revealed by the blur-in after intro */
+  }
+  #sb-list.revealed .sb-item {
+    animation: sbBlurIn 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--i, 0) * 110ms);
+  }
+  @keyframes sbBlurIn {
+    from { opacity: 0; filter: blur(9px); transform: translateY(7px); }
+    to   { opacity: 1; filter: blur(0);   transform: translateY(0); }
   }
   #sidebar .sb-item .sw {
     flex: none; width: 7px; height: 7px;
@@ -1070,6 +1079,7 @@ function unfocus() {
     const item = document.createElement('div');
     item.className = 'sb-item';
     item.style.setProperty('--c', SWATCHES[i % SWATCHES.length]);
+    item.style.setProperty('--i', i);
     const sw = document.createElement('span');
     sw.className = 'sw';
     const t = document.createElement('span');
@@ -1081,6 +1091,9 @@ function unfocus() {
     item.addEventListener('click', () => openPage(sign.post));
     list.appendChild(item);
   });
+
+  // blur the titles in only after the pole + signs have finished growing
+  setTimeout(() => list.classList.add('revealed'), 2100);
 }
 // drag the corner grip to resize the modal
 {
