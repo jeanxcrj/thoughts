@@ -106,9 +106,18 @@
 
   .m-body {
     overflow-y: auto;
+    flex: 1;
     padding: 44px 52px 48px;
   }
-  .m-icon { font-size: 46px; line-height: 1; user-select: none; }
+  .m-grip {
+    position: absolute; right: 5px; bottom: 5px;
+    width: 20px; height: 20px;
+    cursor: nwse-resize; z-index: 2;
+    background:
+      linear-gradient(135deg, transparent 0 9px, #d6d6d2 9px 11px, transparent 11px 15px, #d6d6d2 15px 17px, transparent 17px);
+    border-bottom-right-radius: 12px;
+    touch-action: none;
+  }
   .m-title {
     font-size: 30px; font-weight: 700; color: #37352f;
     letter-spacing: -0.015em; line-height: 1.25;
@@ -162,8 +171,8 @@
 <div id="page">
   <div class="modal" id="plaque">
     <div class="m-close" id="pg-close">✕</div>
+    <div class="m-grip" id="m-grip"></div>
     <div class="m-body">
-      <div class="m-icon" id="pg-icon"></div>
       <h1 class="m-title" id="pg-title"></h1>
       <div class="m-meta" id="pg-meta"></div>
       <div class="pg-content" id="pg-content"></div>
@@ -866,12 +875,7 @@ function renderBlocks(blocks) {
     } else if (b.t === 'callout') {
       el = document.createElement('div');
       el.className = 'callout';
-      const e = document.createElement('span');
-      e.className = 'ce';
-      e.textContent = b.e || '💡';
-      const tx = document.createElement('span');
-      tx.textContent = b.x;
-      el.append(e, tx);
+      el.textContent = b.x;
     } else if (b.t === 'h2') {
       el = document.createElement('h2');
       el.textContent = b.x;
@@ -886,7 +890,6 @@ function renderBlocks(blocks) {
   }
 }
 function openPage(post) {
-  document.getElementById('pg-icon').textContent = post.icon;
   document.getElementById('pg-title').textContent = post.title;
   const meta = document.getElementById('pg-meta');
   meta.innerHTML = '';
@@ -911,6 +914,30 @@ function closePage() {
   pageOpen = false;
   controls.autoRotate = true;
 }
+// drag the corner grip to resize the modal
+{
+  const modal = document.getElementById('plaque');
+  const grip = document.getElementById('m-grip');
+  let rs = null;
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    rs = { x: e.clientX, y: e.clientY, w: modal.offsetWidth, h: modal.offsetHeight };
+    grip.setPointerCapture(e.pointerId);
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (!rs) return;
+    const w = Math.min(window.innerWidth * 0.96, Math.max(400, rs.w + (e.clientX - rs.x) * 2));
+    const h = Math.min(window.innerHeight * 0.92, Math.max(320, rs.h + (e.clientY - rs.y) * 2));
+    modal.style.width = w + 'px';
+    modal.style.height = h + 'px';
+    modal.style.maxHeight = 'none';
+  });
+  const stop = () => { rs = null; };
+  grip.addEventListener('pointerup', stop);
+  grip.addEventListener('pointercancel', stop);
+}
+
 document.getElementById('pg-close').addEventListener('click', closePage);
 pageEl.addEventListener('click', closePage);
 document.getElementById('plaque').addEventListener('click', (e) => e.stopPropagation());
