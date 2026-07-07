@@ -92,20 +92,20 @@
     pointer-events: none; visibility: hidden;
   }
   #sidebar .sb-item {
-    padding: 3px 0;
+    display: flex; align-items: center; gap: 13px;
+    padding: 7px 12px 7px 10px; border-radius: 7px;
     cursor: pointer; pointer-events: auto;
-    font-size: 14.5px; font-weight: 500; line-height: 1.28;
-    color: #b6b6b0;
-    transition: color 0.18s ease, transform 0.18s ease;
+    font-size: 15px; font-weight: 500; line-height: 1.3;
+    color: #a7a7a1;
+    transition: color 0.18s ease, background 0.18s ease;
   }
-  #sidebar .sb-item:hover { color: #6b5bc4; transform: translateX(4px); }
-  #sidebar .sb-item.placeholder { color: #d8d8d3; }
-  #sidebar .sb-item.placeholder:hover { color: #b6b6b0; }
-  #sidebar .sb-empty {
-    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #cfcfca; font-weight: 500;
-    margin: 16px 0 5px;
+  #sidebar .sb-item .sw {
+    flex: none; width: 13px; height: 13px; border-radius: 3px;
+    background: var(--c, #c9c9c4);
+    transition: width 0.24s cubic-bezier(0.4, 0, 0.15, 1);
   }
+  #sidebar .sb-item:hover { color: #7c66df; }
+  #sidebar .sb-item:hover .sw { width: 42px; }
 
   /* ---------------- writings: a clean centered card ---------------- */
   #page {
@@ -220,7 +220,6 @@
 <div id="loader"></div>
 
 <nav id="sidebar">
-  <div class="sb-head" id="sb-head" title="Collapse"></div>
   <div id="sb-list"></div>
 </nav>
 
@@ -1062,27 +1061,26 @@ function unfocus() {
 }
 
 {
-  const sidebar = document.getElementById('sidebar');
-  const head = document.getElementById('sb-head');
   const list = document.getElementById('sb-list');
 
-  head.textContent = 'Writings';
-  head.addEventListener('click', () => {
-    const collapsed = sidebar.classList.toggle('collapsed');
-    if (collapsed) unfocus();
-  });
-
-  // only real writings, in pole order
+  // only real writings, in pole order; each gets an accent swatch
+  const SWATCHES = ['#a6e64d', '#67d4bb', '#8f8fe0', '#f2b63d', '#e8547e'];
   const written = signs.filter((s) => s.post && !s.post.placeholder);
-  for (const sign of written) {
+  written.forEach((sign, i) => {
     const item = document.createElement('div');
     item.className = 'sb-item';
-    item.textContent = sign.post.title;
+    item.style.setProperty('--c', SWATCHES[i % SWATCHES.length]);
+    const sw = document.createElement('span');
+    sw.className = 'sw';
+    const t = document.createElement('span');
+    t.className = 't';
+    t.textContent = sign.post.title;
+    item.append(sw, t);
     item.addEventListener('mouseenter', () => focusOn(sign));
     item.addEventListener('mouseleave', unfocus);
     item.addEventListener('click', () => openPage(sign.post));
     list.appendChild(item);
-  }
+  });
 }
 // drag the corner grip to resize the modal
 {
