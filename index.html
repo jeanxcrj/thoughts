@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>thoughts — Jean Chen</title>
+<title>thoughts · Jean Chen</title>
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="apple-touch-icon" href="favicon.png" />
 <style>
@@ -153,6 +153,14 @@
     font-size: 15px; line-height: 1.65;
   }
   .pg-content .callout .ce { flex: none; font-size: 18px; }
+  .pg-content .reads {
+    background: #f7f6f3; border-radius: 8px;
+    padding: 14px 16px; margin: 4px 0 20px;
+    font-size: 14.5px; line-height: 2;
+  }
+  .pg-content .reads a { color: #5b46b8; text-decoration: none; border-bottom: 1px solid rgba(124,102,223,0.35); }
+  .pg-content .reads a:hover { border-bottom-color: #5b46b8; }
+  .pg-content .reads .src { color: #9b9b96; }
   .pg-content .divider { height: 1px; background: #ededeb; margin: 22px 0; }
 </style>
 <script type="importmap">
@@ -782,22 +790,42 @@ const soon = (icon, mount) => ({
   icon,
   placeholder: true,
   title: 'Coming soon',
-  date: '—',
+  date: 'unwritten',
   mount,
   tags: [['coming soon', 'gray']],
   blocks: [
-    { t: 'callout', e: '🚧', x: `Nothing is mounted here yet. A writing is on its way — check back soon.` },
+    { t: 'callout', e: '🚧', x: `Nothing is mounted here yet. A writing is on its way. Check back soon.` },
   ],
 });
 
 const WRITINGS = {
+  isitart: {
+    icon: '🖼', title: 'But, is it Art?',
+    date: 'April 15, 2025', mount: 'the no-entry disc', tags: [['design', 'peri'], ['reflection', 'lilac'], ['school', 'gray']],
+    blocks: [
+      { t: 'reads', items: [
+        { label: 'Milton Glaser on Walking the Tightrope Between Art and Commerce', src: 'Surface', href: 'https://www.surfacemag.com/articles/milton-glaser-graphic-designer/' },
+        { label: `Simplifying the Bull: How Picasso Helps to Teach Apple's Style`, src: 'The New York Times', href: 'https://www.nytimes.com/2014/08/11/technology/-inside-apples-internal-training-program-.html' },
+        { label: 'Flies in Urinals: The Value of Design Disruptions', src: 'Design Observer', href: 'https://designobserver.com/feature/flies-in-urinals-the-value-of-design-disruptions/33108/' },
+        { label: `What Is Graphic Design's Place in an Art Museum?`, src: 'AIGA Eye on Design', href: 'https://eyeondesign.aiga.org/what-is-graphic-designs-place-in-an-art-museum/' },
+        { label: 'Down with Innovation', src: 'Design Observer', href: 'https://designobserver.com/feature/from-the-archive-down-with-innovation/29188/' },
+      ]},
+      { t: 'p', x: `Reading these articles and texts made me reflect on what design and designing mean, what it should be, who it's for, and why we do it. Each piece pokes at different parts of the design world: its power, pitfalls, and purpose. I was struck by how deeply they interrogate not just what design looks like, but what it means socially, ethically, and personally. I learned that design is complicated, and it's always in negotiation. With commerce, culture, audiences, institutions, and even the designer's values.` },
+      { t: 'p', x: `Milton Glaser's reflection on balancing art and commerce felt particularly honest and necessary. His framing of design as a tightrope, requiring not only skill but ethical clarity, highlights how often designers are asked to compromise. Indeed, it's already hard enough to balance what a designer wants from a design and what the company/client wants, and now we're adding on the facet of business landscape and ethics. Interestingly, in the article, he doesn't deny the economic realities of the field, but he challenges designers to work consciously within them, not passively or cynically. That message feels especially relevant now, when so much design is produced in service of metrics, trends, and immediacy. I think the most important takeaway is that Glaser reminds us that designers have the agency to embed meaning into the process and the outcome of their design.` },
+      { t: 'p', x: `The Picasso analogy in the Apple piece seemed revealing to me. It reframed simplicity not as an aesthetic preference, but as a disciplined, almost philosophical pursuit. The progression of the bull sketches shows how clarity in design is not achieved through minimal effort but through intentional reduction, that is, knowing what to take away without losing the soul of the thing. This process resonates deeply with the way we value design in everyday technology: we often take for granted how much refinement is required to make something feel intuitive and emotionally resonant. The reading "Flies in Urinals" offered a sharp contrast to this. Sometimes design is invisible, humorous, even crude, but no less impactful. The essay's emphasis on behavioural nudges and subtle interventions made me reflect on how often we overlook the power of small design gestures. It was a useful reminder that design's success isn't always measured in beauty or innovation, but in its ability to quietly shift human behaviour for the better.` },
+      { t: 'p', x: `Next, the question of graphic design's place in art museums highlighted the persistent undervaluing of graphic design as an artistic and cultural force, something I've actually seen and felt in both academic and professional spaces. The divide between fine art and commercial design is almost exclusionary to me. To what extent is fine art design and design just another form of fine arts?  This essay pushes against that institutional hierarchy and asks us to consider how graphic design has shaped collective memory and visual culture as powerfully as any traditional art form.` },
+      { t: 'p', x: `Lastly, "Down with Innovation" was a very provocative piece. It questioned the fetishization of disruption, urging designers to think beyond novelty. We are deeply rooted in a culture that rewards speed and constant reinvention; reels, TikTok, rapid communication, needs and wants echo this. This piece called for care, stewardship, and depth. It challenged me to reconsider my own relationship with the word "innovation", how often I use it, chase it, and expect it. It made me think about innovation more deeply, and it reminded me of our discussion in class where we talked about how Apple is in a state where it stopped "innovating". But maybe what's truly innovative now is attention to what already works, and a commitment to making it more sustainable, accessible, and humane. How does one achieve this? If innovation is no longer about the next big disruption but about refining what already exists, then does the designer's role shift from inventor to caretaker? This led me to think that maybe the next step isn't to leap forward, but to look around and ask: What deserves more care? What systems need fixing, not replacing?` },
+      { t: 'p', x: `This class's readings asked difficult questions about why we make, who we're making for, and what we're willing to compromise. And while they don't offer easy answers, they create space for reflection, which I think might be the most important part of design that often gets overlooked:` },
+      { t: 'quote', x: `The act of pausing to think before executing.` },
+    ],
+  },
   elitism: {
     icon: '🎨', title: 'On design elitism, taste, and unlearning',
     date: 'July 1, 2026', mount: 'the UNLEARNING DESIGN panel', tags: [['design', 'peri'], ['reflection', 'lilac'], ['school', 'gray']],
     blocks: [
-      { t: 'callout', e: '💭', x: `Sparked by the Design Theory video "Why Are Designers Elitist?" — and a set of readings on humanitarian design.` },
+      { t: 'callout', e: '💭', x: `Sparked by the Design Theory video "Why Are Designers Elitist?" and a set of readings on humanitarian design.` },
       { t: 'p', x: `I remember watching a video from the Design Theory channel called "Why Are Designers Elitist?", and its conclusion has really stuck with me, especially in light of these readings. The video suggests that elitism in design often comes from the culture and institutions that uphold taste and refinement as markers of good design. It concludes that designers become elitist not because design demands it, but because the institutions and culture surrounding design teach them to value exclusivity, complexity, and insider language over accessibility and humility. The more a designer learns about grids, typography, Bauhaus minimalism, or brutalist interfaces, the more they're conditioned to value a very specific kind of visual language, one that's often clean, polished, inaccessible, and rooted in Western modernism. The result is unfortunately an often unspoken belief that anything outside of that language is "lesser."` },
-      { t: 'p', x: `This elitism doesn't just shape how designers judge each other's work but also who gets to participate in design at all. When "good design" becomes synonymous with sleekness, modularity, or even scarcity, we begin to ignore design that is messy, handmade, culturally specific, or simply rooted in different priorities. And in humanitarian design, this elitism can have serious consequences. Take, for example, the Fairphone or Framework laptop, both built with repairability, sustainability, and ethics in mind. By all accounts, they should be aspirational products. Yet, they're not widely adopted; not because they're not good, but because they don't look or feel like premium tech. They don't have the polished veneer of an Apple product. This reveals something unsettling: even when we know a product is more ethical, many people (designers included) still prioritize aesthetic elitism over systemic responsibility. So the question is: Are we designing for users—or for other designers? For awards? For clout? If a product doesn't fit the glossy, minimalist mold, does it stand a chance? Do we dismiss vernacular or community-built solutions simply because they don't look like they belong in esteemed design magazines?  (I really do love rhetorical questions...)` },
+      { t: 'p', x: `This elitism doesn't just shape how designers judge each other's work but also who gets to participate in design at all. When "good design" becomes synonymous with sleekness, modularity, or even scarcity, we begin to ignore design that is messy, handmade, culturally specific, or simply rooted in different priorities. And in humanitarian design, this elitism can have serious consequences. Take, for example, the Fairphone or Framework laptop, both built with repairability, sustainability, and ethics in mind. By all accounts, they should be aspirational products. Yet, they're not widely adopted; not because they're not good, but because they don't look or feel like premium tech. They don't have the polished veneer of an Apple product. This reveals something unsettling: even when we know a product is more ethical, many people (designers included) still prioritize aesthetic elitism over systemic responsibility. So the question is: Are we designing for users, or for other designers? For awards? For clout? If a product doesn't fit the glossy, minimalist mold, does it stand a chance? Do we dismiss vernacular or community-built solutions simply because they don't look like they belong in esteemed design magazines?  (I really do love rhetorical questions...)` },
       { t: 'p', x: `The video's takeaway, that design elitism is learned, and rooted in the culture of the design community, felt like a call to unlearn. To question the values we've internalized about what "good" design looks like. And that ties directly back into the readings: from failed humanitarian projects that looked great on paper but ignored reality, to solutions that succeeded precisely because they weren't trying to win design awards, they were trying to work.` },
       { t: 'quote', x: `Maybe part of rethinking humanitarian design means rethinking design culture itself. Maybe inclusion and ethics start not just in our process, but in our taste…` },
     ],
@@ -806,7 +834,6 @@ const WRITINGS = {
   tuesday: soon('☕', 'the 30 disc'),
   drift: soon('🌊', 'the ONE WAY sign'),
   elevators: soon('🛗', 'the hazard square'),
-  peonies: soon('🌸', 'the no-entry disc'),
   molt: soon('🐍', 'the EXIT 12 panel'),
   tender: soon('🌱', 'the 7% triangle'),
   middle: soon('🛣', 'the KM 42 marker'),
@@ -832,7 +859,7 @@ const composition = [
   { build: () => buildRectSign(1.45, 0.5, artMuseumBlack()),                h: 4.85, post: WRITINGS.elitism },
   { build: () => buildRectSign(0.5, 1.35, artOneWay()),                     h: 4.28, post: WRITINGS.drift },
   { build: () => buildRectSign(0.72, 0.72, artHazardStripes()),             h: 3.72, post: WRITINGS.elevators },
-  { build: () => buildCircleSign(0.4, artNoEntry()),                        h: 3.3,  post: WRITINGS.peonies },
+  { build: () => buildCircleSign(0.4, artNoEntry()),                        h: 3.3,  post: WRITINGS.isitart },
   { build: () => buildRectSign(1.5, 0.5, artExitGreen()),                   h: 2.78, post: WRITINGS.molt },
   { build: () => buildTriangleSign(0.9, artYield()),                        h: 2.25, post: WRITINGS.tender },
   { build: () => buildRectSign(0.48, 1.3, artKilometer()),                  h: 1.75, post: WRITINGS.middle },
@@ -876,6 +903,25 @@ function renderBlocks(blocks) {
       el = document.createElement('div');
       el.className = 'callout';
       el.textContent = b.x;
+    } else if (b.t === 'reads') {
+      el = document.createElement('div');
+      el.className = 'reads';
+      for (const it of b.items) {
+        const row = document.createElement('div');
+        const a = document.createElement('a');
+        a.href = it.href;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = it.label;
+        row.appendChild(a);
+        if (it.src) {
+          const src = document.createElement('span');
+          src.className = 'src';
+          src.textContent = ' · ' + it.src;
+          row.appendChild(src);
+        }
+        el.appendChild(row);
+      }
     } else if (b.t === 'h2') {
       el = document.createElement('h2');
       el.textContent = b.x;
