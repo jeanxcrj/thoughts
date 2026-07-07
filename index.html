@@ -738,21 +738,6 @@ function addClampRing(y, extraBolt = true) {
 /* ------------------------------- mounting --------------------------------- */
 const signs = []; // { pivot, group, baseRotZ, wobble, wobbleVel }
 
-// soft radial halo, drawn once and reused behind every writing sign
-const glowTexture = (() => {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(128, 128, 8, 128, 128, 128);
-  grad.addColorStop(0, 'rgba(198, 176, 255, 0.95)');
-  grad.addColorStop(0.4, 'rgba(140, 108, 255, 0.6)');
-  grad.addColorStop(1, 'rgba(150, 120, 255, 0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-})();
 
 function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY = 0, post = null }) {
   // pivot sits on the pole axis; sign extends along local +z
@@ -800,25 +785,8 @@ function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY
   plate.position.z = -0.01;
   group.add(plate);
 
-  // soft glow behind signs that hold a writing
-  let glow = null;
-  if (post && !post.placeholder) {
-    glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: glowTexture,
-      color: 0x8a6bff,
-      transparent: true,
-      opacity: 0.9,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    }));
-    const r = (group.userData.halfWidth || 0.5) * 3.5;
-    glow.scale.set(r, r, 1);
-    glow.position.z = -0.12;
-    glow.renderOrder = -1;
-    group.add(glow);
-  }
 
-  signs.push({ pivot, assembly, holder, group, post, glow, height, angleDeg, wobble: 0, wobbleVel: 0, phase: rand() * Math.PI * 2 });
+  signs.push({ pivot, assembly, holder, group, post, height, angleDeg, wobble: 0, wobbleVel: 0, phase: rand() * Math.PI * 2 });
   return pivot;
 }
 
@@ -1128,7 +1096,6 @@ function animate() {
     const idle = Math.sin(t * 0.7 + s.phase) * 0.006;
     s.holder.rotation.z = (s.holder.userData.baseZ ??= s.holder.rotation.z) + idle;
     s.group.rotation.x = s.wobble * 0.12;
-    if (s.glow) s.glow.material.opacity = 0.72 + Math.sin(t * 1.6 + s.phase) * 0.22;
   }
 
   // hover
