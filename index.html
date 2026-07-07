@@ -67,45 +67,43 @@
   }
   #loader.done { opacity: 0; pointer-events: none; }
 
-  /* ---------------- left sidebar: minimal article index (Satoshi) ---------------- */
-  #sb-toggle {
-    position: fixed; top: 26px; left: 28px; z-index: 22;
-    display: inline-flex; flex-direction: column; gap: 4px;
-    padding: 4px; cursor: pointer; user-select: none;
-  }
-  #sb-toggle span { width: 22px; height: 2px; background: #2b2b2b; border-radius: 2px; transition: transform 0.3s ease, opacity 0.2s ease; }
-  body.sb-open #sb-toggle span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
-  body.sb-open #sb-toggle span:nth-child(2) { opacity: 0; }
-  body.sb-open #sb-toggle span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
-
+  /* ---------------- left side tab: article index (Satoshi) ---------------- */
   #sidebar {
-    position: fixed; top: 0; left: 0; bottom: 0; z-index: 21;
-    width: 300px; max-width: 80vw;
-    background: #fbfbf9;
-    transform: translateX(-101%);
-    transition: transform 0.42s cubic-bezier(0.4, 0, 0.15, 1);
-    padding: 78px 34px 28px;
-    display: flex; flex-direction: column;
+    position: fixed; top: 52px; left: 42px; z-index: 21;
+    max-height: calc(100vh - 100px);
     overflow-y: auto;
+    pointer-events: none;            /* orbit still works through empty space */
     font-family: "Satoshi", -apple-system, "Helvetica Neue", Arial, sans-serif;
   }
-  body.sb-open #sidebar { transform: translateX(0); }
   #sidebar .sb-head {
     width: 40px; height: 4px; border-radius: 2px;
-    background: #2b2b2b; margin-bottom: 30px;
+    background: #2b2b2b; margin-bottom: 24px;
+    cursor: pointer; pointer-events: auto;
+    transition: width 0.28s ease, opacity 0.2s ease;
+  }
+  #sidebar .sb-head:hover { opacity: 0.65; }
+  #sidebar.collapsed .sb-head { width: 22px; }
+  #sb-list {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  #sidebar.collapsed #sb-list {
+    opacity: 0; transform: translateY(-6px);
+    pointer-events: none; visibility: hidden;
   }
   #sidebar .sb-item {
-    padding: 11px 0;
-    cursor: pointer;
-    font-size: 15px; font-weight: 500; line-height: 1.4;
-    color: #bdbdb8;
+    padding: 9px 0;
+    cursor: pointer; pointer-events: auto;
+    font-size: 14.5px; font-weight: 500; line-height: 1.4;
+    color: #b6b6b0;
     transition: color 0.18s ease, transform 0.18s ease;
   }
   #sidebar .sb-item:hover { color: #2b2b2b; transform: translateX(4px); }
-  #sidebar .sb-item.placeholder { color: #dcdcd7; cursor: default; }
-  #sidebar .sb-item.placeholder:hover { color: #dcdcd7; transform: none; }
+  #sidebar .sb-item.placeholder { color: #d8d8d3; }
+  #sidebar .sb-item.placeholder:hover { color: #b6b6b0; }
   #sidebar .sb-empty {
-    font-size: 13px; color: #cfcfca; font-weight: 400;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #cfcfca; font-weight: 500;
+    margin: 20px 0 6px;
   }
 
   /* ---------------- writings: a clean centered card ---------------- */
@@ -220,9 +218,8 @@
 <div id="app"></div>
 <div id="loader"></div>
 
-<div id="sb-toggle"><span></span><span></span><span></span></div>
 <nav id="sidebar">
-  <div class="sb-head"></div>
+  <div class="sb-head" id="sb-head" title="Collapse"></div>
   <div id="sb-list"></div>
 </nav>
 
@@ -1045,14 +1042,13 @@ function openPage(post) {
 function closePage() {
   pageEl.classList.remove('open');
   pageOpen = false;
-  if (!sidebarOpen) controls.autoRotate = true;
+  if (!focusSign) controls.autoRotate = true;
 }
 
-/* ---------------------------- left sidebar ---------------------------- */
+/* ------------------------ left side tab (always visible) ------------------------ */
 // hovering a title eases the view around to face that sign and nudges it
 const _sph = new THREE.Spherical();
 let focusSign = null;
-let sidebarOpen = false;
 
 function focusOn(sign) {
   focusSign = sign;
@@ -1061,20 +1057,20 @@ function focusOn(sign) {
 }
 function unfocus() {
   focusSign = null;
-  if (!pageOpen && !sidebarOpen) controls.autoRotate = true;
+  if (!pageOpen) controls.autoRotate = true;
 }
 
 {
-  const toggle = document.getElementById('sb-toggle');
+  const sidebar = document.getElementById('sidebar');
+  const head = document.getElementById('sb-head');
   const list = document.getElementById('sb-list');
 
-  const setOpen = (open) => {
-    sidebarOpen = open;
-    document.body.classList.toggle('sb-open', open);
-    controls.autoRotate = !open && !pageOpen;
-    if (!open) focusSign = null;
-  };
-  toggle.addEventListener('click', () => setOpen(!sidebarOpen));
+  // the dark bar collapses / expands the list
+  head.addEventListener('click', () => {
+    const collapsed = sidebar.classList.toggle('collapsed');
+    head.title = collapsed ? 'Show writings' : 'Collapse';
+    if (collapsed) unfocus();
+  });
 
   // real writings first (in pole order), placeholders greyed at the bottom
   const written = signs.filter((s) => s.post && !s.post.placeholder);
@@ -1086,13 +1082,12 @@ function unfocus() {
     item.textContent = sign.post.title;
     item.addEventListener('mouseenter', () => focusOn(sign));
     item.addEventListener('mouseleave', unfocus);
-    item.addEventListener('click', () => { setOpen(false); openPage(sign.post); });
+    item.addEventListener('click', () => openPage(sign.post));
     list.appendChild(item);
   }
   if (empty.length) {
     const label = document.createElement('div');
     label.className = 'sb-empty';
-    label.style.margin = '22px 0 4px';
     label.textContent = 'coming soon';
     list.appendChild(label);
     for (const sign of empty) {
