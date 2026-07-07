@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WAYFINDING</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #ffffff; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  #loader {
+    position: fixed; inset: 0; z-index: 40; background: #fff;
+    transition: opacity 0.9s ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+
+  /* ------------- the reading veil ------------- */
+  #veil {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(255, 255, 255, 0.96);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.55s ease;
+    cursor: pointer;
+    overflow-y: auto;
+  }
+  #veil.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    max-width: 580px; width: 100%;
+    padding: 60px 40px;
+    color: #111;
+    transform: translateY(14px);
+    transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+    cursor: default;
+  }
+  #veil.open .sheet { transform: translateY(0); }
+  .meta {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: #a0a0a0; margin-bottom: 26px;
+  }
+  .meta .dot { width: 9px; height: 9px; border-radius: 50%; background: #ff8fb2; flex: none; }
+  .sheet h2 {
+    font-family: Georgia, serif; font-style: italic; font-weight: 400;
+    font-size: 32px; letter-spacing: 0.01em; margin-bottom: 26px; line-height: 1.3;
+  }
+  .rule { width: 42px; height: 2px; background: #111; margin-bottom: 30px; }
+  .sheet .body {
+    font-family: Georgia, serif;
+    font-size: 16.5px; line-height: 2.02; color: #2c2c2c;
+    white-space: pre-line;
+  }
+  .sheet .close-hint {
+    margin-top: 46px;
+    font-size: 9.5px; letter-spacing: 0.3em; color: #c4c4c4;
+    text-transform: uppercase;
+  }
+  /* index mode */
+  #indexList { display: none; }
+  #indexList.on { display: block; }
+  #article.off { display: none; }
+  #indexList h2 {
+    font-family: Georgia, serif; font-style: italic; font-weight: 400;
+    font-size: 30px; margin-bottom: 34px;
+  }
+  #indexList ul { list-style: none; }
+  #indexList li {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 13px 6px; border-top: 1px solid #ececec;
+    cursor: pointer; transition: background 0.2s ease, padding-left 0.2s ease;
+  }
+  #indexList li:hover { background: #fafafa; padding-left: 14px; }
+  #indexList li .idot { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
+  #indexList li .ititle { font-family: Georgia, serif; font-size: 16px; color: #1a1a1a; flex: 1; }
+  #indexList li .itag {
+    font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #b0b0b0;
+  }
+  #indexList li .idate {
+    font-size: 10.5px; color: #b0b0b0; font-variant-numeric: tabular-nums;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="loader"></div>
+
+<div id="veil">
+  <div class="sheet" id="sheet">
+    <div id="article">
+      <div class="meta"><span class="dot" id="w-dot"></span><span id="w-tag"></span><span>·</span><span id="w-date"></span></div>
+      <h2 id="w-title"></h2>
+      <div class="rule"></div>
+      <div class="body" id="w-body"></div>
+      <div class="close-hint">tap outside the text to return to the pole</div>
+    </div>
+    <div id="indexList">
+      <h2>Everything growing here</h2>
+      <ul id="idx-ul"></ul>
+      <div class="close-hint" style="margin-top:34px;">tap outside the list to return</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE WRITINGS — edit this list to grow the pole.
+   kind: 'flower' (life / misc / absurd → a moss colony with wildflowers)
+         'chrome' (design / work / company → a liquid-metal object)
+         'sign'   (recognizable wayfinding signage)
+   accent: hex color hinted into that colony's wildflowers
+   ═══════════════════════════════════════════════════════════════════════════ */
+const POSTS = [
+  {
+    id: 'garden', kind: 'flower', accent: 0xf5f0e2,
+    tag: 'life', date: '2026 · 06 · 12', title: 'On keeping a pole instead of a garden',
+    body: `A garden asks for land. A pole only asks for a place to stand.
+
+I like that. I move a lot — cities, jobs, versions of myself — and the pole comes along, holding everything I've written on the way. Some of it blooms. Some of it is bolted on. All of it points somewhere I've been or somewhere I'm going. This is not a portfolio. It is a lamppost I keep talking to.`,
+  },
+  {
+    id: 'drift', kind: 'flower', accent: 0xd96a4a,
+    tag: 'life', date: '2026 · 03 · 02', title: 'The year I learned to drift',
+    body: `Some years the current did the steering. I called it failure then; I call it water now.
+
+Drifting taught me what no map could — that lostness is a place with its own weather, its own small mercies, and that the shore I washed up on was kinder than the one I had charted.`,
+  },
+  {
+    id: 'elevators', kind: 'flower', accent: 0x9d84c9,
+    tag: 'absurd', date: '2026 · 05 · 27', title: 'Absurd thought №14: elevators are vertical trains',
+    body: `One car. One track. Scheduled stops. Strangers avoiding eye contact while the landscape (drywall) rushes past.
+
+We accepted a train that goes UP and nobody threw a parade. Every morning I commute eleven floors and act like it's nothing. It is not nothing. I am in a tiny vertical train station wearing my nice jacket.
+
+Related: escalators are rivers for people who gave up.`,
+  },
+  {
+    id: 'tender', kind: 'flower', accent: 0xd98a9e,
+    tag: 'life', date: '2025 · 11 · 18', title: 'Tenderness as engineering',
+    body: `To be soft in a hard season is not weakness; it is engineering.
+
+The bud survives the frost not by becoming stone but by holding its sugar close. I am done apologizing for tenderness. It is the most load-bearing thing I own.`,
+  },
+  {
+    id: 'tuesday', kind: 'flower', accent: 0xe8b64c,
+    tag: 'life', date: '2026 · 01 · 20', title: 'Notes from an unremarkable Tuesday',
+    body: `No one warns you about the middle — after the beginning's adrenaline, before the ending's clarity. Just Tuesdays. Just watering things I cannot yet see.
+
+Today I fixed a sentence, walked the long way for milk, and said "you too" when the barista said "enjoy your drink." The middle is not the wait between meanings. It is the meaning, wearing ordinary clothes.`,
+  },
+  {
+    id: 'peonies', kind: 'flower', accent: 0x7b89c9,
+    tag: 'misc', date: '2025 · 06 · 30', title: `Peonies don't apologize`,
+    body: `A peony opens too much, too fast, in colors that clash with everything, and drops its entire self on the table in four days.
+
+It never once says sorry for the mess. I bought three. I am taking notes.`,
+  },
+  {
+    id: 'loadbearing', kind: 'chrome', variant: 'knot',
+    tag: 'design', date: '2026 · 04 · 15', title: 'Design is a load-bearing wall',
+    body: `People renovate products the way bad landlords renovate apartments — rip out what looks old, keep whatever the floor plan happens to imply. Then the ceiling sags and everyone blames the paint.
+
+Design is not the paint. It is the wall you find out was structural. The interview flow, the pricing page, the empty state at 2 a.m. — knock those down carelessly and the whole thing leans. Good designers walk in with a stud finder, not a mood board.`,
+  },
+  {
+    id: 'liquidmetal', kind: 'chrome', variant: 'blob',
+    tag: 'company', date: '2026 · 02 · 09', title: 'Liquid metal: notes on building a thing',
+    body: `A company at the beginning is liquid metal — blindingly shiny, no fixed shape, and it burns you if you hold it wrong.
+
+Everyone asks what mold you'll pour it into. The honest answer is that the mold is made of the first ten people, the first hundred no's, and whatever you refuse to stop believing on the worst day. It cools into a shape you only recognize afterward. Keep it molten a little longer than is comfortable. Most things harden too early, not too late.`,
+  },
+  {
+    id: 'doorhandles', kind: 'chrome', variant: 'helix',
+    tag: 'design', date: '2025 · 09 · 21', title: 'Interfaces should feel like door handles',
+    body: `Nobody reads a manual for a door handle. Your hand arrives already knowing.
+
+That's the whole ambition, honestly — software that meets the hand halfway. Every time I add a tooltip I try to hear a tiny door handle laughing at me.`,
+  },
+  {
+    id: 'chrome-honesty', kind: 'chrome', variant: 'spheres',
+    tag: 'work', date: '2026 · 06 · 01', title: 'Chrome as honesty',
+    body: `Chrome hides nothing. It shows you the room, warped but faithful — including your own face, too close, checking on it.
+
+I want to make work like that: reflective, a little distorted, impossible to look at without also seeing yourself. Matte is safer. Matte absorbs. But I didn't start doing any of this to be absorbent.`,
+  },
+  {
+    id: 'about', kind: 'sign', variant: 'blade-left',
+    tag: 'about', date: 'permanent fixture', title: 'About this pole',
+    body: `I'm Jean. I navigate through life the way anyone does — squinting at signs, taking wrong exits, doubling back.
+
+This pole is where I keep the record: essays, absurd thoughts, notes on design and on building things. The miscellaneous ones grow as flowers. The made ones come out metal. The signs are here so you (and I) don't get lost.
+
+It grows when I write. Come back when it's taller.`,
+  },
+  {
+    id: 'how', kind: 'sign', variant: 'circle',
+    tag: 'wayfinding', date: 'permanent fixture', title: 'How this place works',
+    body: `∞ — no destination, only direction.
+
+Every living thing on this pole is a piece of writing. Moss and wildflowers hold the living, absurd, miscellaneous stuff. Chrome holds thoughts about design, work, and company-building. Signs hold the practical.
+
+Click anything that grows. Orbit to find what's hiding on the other side. The pole does not end; it just hasn't grown further yet.`,
+  },
+  {
+    id: 'warning', kind: 'sign', variant: 'triangle',
+    tag: 'manifesto', date: 'permanent fixture', title: '! — absurd thoughts ahead',
+    body: `Warning: the thoughts beyond this point have not been peer-reviewed, moodboarded, or run past anyone sensible.
+
+They are posted the way wildflowers post themselves in a sidewalk crack — without permission and slightly crooked. Proceed with the understanding that seriousness and silliness are, on this pole, the same load-bearing material.`,
+  },
+];
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260707);
+const jitter = (amt) => (rand() * 2 - 1) * amt;
+const UP = new THREE.Vector3(0, 1, 0);
+
+/* ------------------------------- renderer -------------------------------- */
+const container = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
+scene.fog = new THREE.Fog(0xffffff, 26, 70);
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 120);
+camera.position.set(8.8, 5.0, 10.0);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 3.55, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 2.5;
+controls.maxDistance = 26;
+controls.maxPolarAngle = Math.PI * 0.55;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+// a mostly-white world with dark strips + one hot panel, baked just for the
+// chrome — liquid mercury in a white room instead of a dark ball
+const chromeEnvScene = new THREE.Scene();
+chromeEnvScene.background = new THREE.Color(0xffffff);
+{
+  const dark = new THREE.MeshBasicMaterial({ color: 0x111114, side: THREE.DoubleSide });
+  const stripDefs = [
+    [0, 1.2, -4, 9, 1.4, 0.15],
+    [3.5, 2.8, 2.5, 7, 1.1, 0.5],
+    [-4, 0.4, 1.5, 1.2, 6, 0.4],
+    [1.5, -0.5, 4, 8, 0.9, -0.2],
+    [-2.5, 3.6, -2.5, 5, 0.8, 0.9],
+  ];
+  for (const [x, y, z, w, h, r] of stripDefs) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), dark);
+    s.position.set(x, y, z);
+    s.lookAt(0, 0, 0);
+    s.rotation.z = r;
+    chromeEnvScene.add(s);
+  }
+  const hot = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.5, 3.5),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 6, 6), side: THREE.DoubleSide })
+  );
+  hot.position.set(2.5, 4.5, 2);
+  hot.lookAt(0, 0, 0);
+  chromeEnvScene.add(hot);
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(9, 32),
+    new THREE.MeshBasicMaterial({ color: 0x3a3a40, side: THREE.DoubleSide })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -1.6;
+  chromeEnvScene.add(floor);
+}
+const chromeEnv = pmrem.fromScene(chromeEnvScene, 0.04).texture;
+
+/* -------------------------------- lights --------------------------------- */
+scene.add(new THREE.HemisphereLight(0xffffff, 0xeaeaea, 0.7));
+
+const key = new THREE.DirectionalLight(0xffffff, 1.9);
+key.position.set(6, 11, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 30;
+key.shadow.camera.left = -6;
+key.shadow.camera.right = 6;
+key.shadow.camera.top = 9;
+key.shadow.camera.bottom = -3;
+key.shadow.bias = -0.0002;
+key.shadow.radius = 9;
+key.shadow.blurSamples = 16;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xffffff, 0.75);
+fill.position.set(-7, 5, -4);
+scene.add(fill);
+
+/* -------------------------------- ground --------------------------------- */
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(45, 64),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.96, metalness: 0 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ------------------------------- materials ------------------------------- */
+const poleMat   = new THREE.MeshStandardMaterial({ color: 0x141416, metalness: 0.85, roughness: 0.42 });
+const armMat    = new THREE.MeshStandardMaterial({ color: 0x101012, metalness: 0.85, roughness: 0.45 });
+const clampMat  = new THREE.MeshStandardMaterial({ color: 0x45464a, metalness: 0.95, roughness: 0.34 });
+const frameMat  = new THREE.MeshStandardMaterial({ color: 0xd4d6d9, metalness: 0.9,  roughness: 0.3 });
+const backMat   = new THREE.MeshStandardMaterial({ color: 0xcfd1d4, metalness: 0.5,  roughness: 0.55 });
+const chromeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1.0,  roughness: 0.06, envMap: chromeEnv, envMapIntensity: 1.0 });
+const quartzMat = new THREE.MeshPhysicalMaterial({
+  color: 0xdfe9f2, metalness: 0, roughness: 0.05, transmission: 0.72,
+  thickness: 0.5, ior: 1.5, clearcoat: 1, clearcoatRoughness: 0.08,
+  envMapIntensity: 2.4, flatShading: true,
+});
+
+/* --------------------------------- pole ---------------------------------- */
+const POLE_H = 7.4;
+const POLE_R = 0.095;
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, POLE_H, 32), poleMat);
+pole.position.y = POLE_H / 2;
+pole.castShadow = true;
+pole.receiveShadow = true;
+scene.add(pole);
+
+const cap = new THREE.Mesh(new THREE.SphereGeometry(POLE_R, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), poleMat);
+cap.position.y = POLE_H;
+cap.castShadow = true;
+scene.add(cap);
+
+const base = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R * 2.4, POLE_R * 2.9, 0.09, 32), clampMat);
+base.position.y = 0.045;
+base.castShadow = true;
+base.receiveShadow = true;
+scene.add(base);
+const baseRing = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R * 1.5, POLE_R * 1.5, 0.16, 32), clampMat);
+baseRing.position.y = 0.12;
+baseRing.castShadow = true;
+scene.add(baseRing);
+
+function addClampRing(y, extraBolt = true) {
+  const ring = new THREE.Mesh(
+    new THREE.CylinderGeometry(POLE_R + 0.022, POLE_R + 0.022, 0.085, 32),
+    clampMat
+  );
+  ring.position.y = y;
+  ring.castShadow = true;
+  ring.receiveShadow = true;
+  scene.add(ring);
+  if (extraBolt) {
+    const bolt = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.045), clampMat);
+    const a = rand() * Math.PI * 2;
+    bolt.position.set(Math.cos(a) * (POLE_R + 0.035), y, Math.sin(a) * (POLE_R + 0.035));
+    bolt.castShadow = true;
+    scene.add(bolt);
+  }
+}
+
+/* --------------------------- canvas sign artwork -------------------------- */
+const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return [c, c.getContext('2d')];
+}
+function toTexture(canvas) {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+function artBlade(text, bg, fg, pointRight) {
+  const [c, ctx] = makeCanvas(1024, 280);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, 1024, 280);
+  ctx.fillStyle = fg;
+  ctx.font = `bold 118px ${FONT}`;
+  ctx.textBaseline = 'middle';
+  if (pointRight) {
+    ctx.textAlign = 'left';
+    ctx.fillText(text, 56, 148);
+  } else {
+    ctx.textAlign = 'right';
+    ctx.fillText(text, 968, 148);
+  }
+  return c;
+}
+function artInfinity() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#d92b2b';
+  ctx.lineWidth = 60;
+  ctx.beginPath(); ctx.arc(320, 320, 280, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#111111';
+  ctx.font = `bold 240px Georgia, serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('∞', 320, 320);
+  return c;
+}
+function artWarning() {
+  const [c, ctx] = makeCanvas(640, 576);
+  const apex = [320, 26], bl = [30, 546], br = [610, 546];
+  const cx0 = 320, cy0 = 372;
+  const tri = (inset) => {
+    ctx.beginPath();
+    [apex, br, bl].forEach((p, i) => {
+      const x = p[0] + (cx0 - p[0]) * inset;
+      const y = p[1] + (cy0 - p[1]) * inset;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  };
+  ctx.fillStyle = '#d92b2b'; tri(0); ctx.fill();
+  ctx.fillStyle = '#ffffff'; tri(0.22); ctx.fill();
+  ctx.fillStyle = '#111111';
+  ctx.font = `bold 230px ${FONT}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('!', 320, 400);
+  return c;
+}
+
+/* --------------------------- geometry helpers ----------------------------- */
+const SIGN_T = 0.035;
+
+function remapUVsToBounds(geometry) {
+  geometry.computeBoundingBox();
+  const bb = geometry.boundingBox;
+  const sx = bb.max.x - bb.min.x, sy = bb.max.y - bb.min.y;
+  const pos = geometry.attributes.position;
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, (pos.getX(i) - bb.min.x) / sx, (pos.getY(i) - bb.min.y) / sy);
+  }
+  uv.needsUpdate = true;
+}
+function roundedPolygonShape(points, radius) {
+  const shape = new THREE.Shape();
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const p = points[i];
+    const prev = points[(i + n - 1) % n];
+    const next = points[(i + 1) % n];
+    const dPrev = p.clone().sub(prev).normalize();
+    const dNext = next.clone().sub(p).normalize();
+    const pA = p.clone().sub(dPrev.clone().multiplyScalar(radius));
+    const pB = p.clone().add(dNext.clone().multiplyScalar(radius));
+    if (i === 0) shape.moveTo(pA.x, pA.y); else shape.lineTo(pA.x, pA.y);
+    shape.quadraticCurveTo(p.x, p.y, pB.x, pB.y);
+  }
+  shape.closePath();
+  return shape;
+}
+function faceMaterial(canvas) {
+  return new THREE.MeshStandardMaterial({ map: toTexture(canvas), metalness: 0.35, roughness: 0.42 });
+}
+function outlineFrame(shape, tubeR = 0.028) {
+  const outline = shape.getPoints(48).map((p) => new THREE.Vector3(p.x, p.y, SIGN_T / 2));
+  const curve = new THREE.CatmullRomCurve3(outline, true, 'catmullrom', 0.0);
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 160, tubeR, 10, true), frameMat);
+  tube.castShadow = true;
+  tube.receiveShadow = true;
+  return tube;
+}
+function shapeSign(shape, canvas) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(shape, { depth: SIGN_T, bevelEnabled: false, curveSegments: 10 }),
+    backMat
+  );
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+  const faceGeo = new THREE.ShapeGeometry(shape, 10);
+  remapUVsToBounds(faceGeo);
+  const face = new THREE.Mesh(faceGeo, faceMaterial(canvas));
+  face.scale.set(0.985, 0.985, 1);
+  face.position.z = SIGN_T + 0.002;
+  face.receiveShadow = true;
+  g.add(face);
+  g.add(outlineFrame(shape));
+  return g;
+}
+function buildBladeSign(w, h, canvas, pointRight = true) {
+  const tip = h * 0.55;
+  const pts = pointRight
+    ? [
+        new THREE.Vector2(-w / 2, -h / 2),
+        new THREE.Vector2(w / 2 - tip, -h / 2),
+        new THREE.Vector2(w / 2, 0),
+        new THREE.Vector2(w / 2 - tip, h / 2),
+        new THREE.Vector2(-w / 2, h / 2),
+      ]
+    : [
+        new THREE.Vector2(-w / 2 + tip, -h / 2),
+        new THREE.Vector2(w / 2, -h / 2),
+        new THREE.Vector2(w / 2, h / 2),
+        new THREE.Vector2(-w / 2 + tip, h / 2),
+        new THREE.Vector2(-w / 2, 0),
+      ];
+  const shape = roundedPolygonShape(pts, 0.035);
+  return shapeSign(shape, canvas);
+}
+function buildCircleSign(r, canvas) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, SIGN_T, 48), backMat);
+  body.rotation.x = Math.PI / 2;
+  body.position.z = SIGN_T / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+  const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.995, 48), faceMaterial(canvas));
+  face.position.z = SIGN_T + 0.002;
+  face.receiveShadow = true;
+  g.add(face);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r + 0.012, 0.032, 20, 64), frameMat);
+  rim.position.z = SIGN_T / 2;
+  rim.castShadow = true;
+  rim.receiveShadow = true;
+  g.add(rim);
+  return g;
+}
+function buildTriangleSign(size, canvas) {
+  const R = size * 0.62;
+  const pts = [90, 210, 330].map((deg) => {
+    const a = (deg * Math.PI) / 180;
+    return new THREE.Vector2(Math.cos(a) * R, Math.sin(a) * R);
+  });
+  const shape = roundedPolygonShape(pts, size * 0.09);
+  return shapeSign(shape, canvas);
+}
+
+/* ------------------------------ living matter -----------------------------
+   Moss (instanced clumps), real-ish wildflowers, grass, quartz — the pole
+   being reclaimed. ---------------------------------------------------------- */
+const MOSS_GEO = new THREE.IcosahedronGeometry(1, 1);
+const TINY_GEO = new THREE.SphereGeometry(1, 10, 8);
+const PETAL_GEO = new THREE.SphereGeometry(1, 12, 8);
+const STEMLET_GEO = new THREE.CylinderGeometry(1, 1.25, 1, 6);
+
+const mossMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0 });
+const matCache = new Map();
+function matOf(color, rough = 0.7) {
+  const k = color + '-' + rough;
+  if (!matCache.has(k)) matCache.set(k, new THREE.MeshStandardMaterial({ color, metalness: 0, roughness: rough }));
+  return matCache.get(k);
+}
+const stemMat = matOf(0x5c7a48, 0.75);
+const GREENS = [0x3d5a2e, 0x4c6b36, 0x5d7d40, 0x6d8c4c, 0x2f4a24];
+
+// a clump of moss hugging the pole (or lying flat), as one InstancedMesh
+function mossPatch({ count, angSpread, ySpread, baseR, flat = false, spreadR = 0.3 }) {
+  const im = new THREE.InstancedMesh(MOSS_GEO, mossMat, count);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+  const e = new THREE.Euler();
+  const col = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    if (flat) {
+      const a = rand() * Math.PI * 2;
+      const r = Math.sqrt(rand()) * spreadR;
+      p.set(Math.cos(a) * r, 0.008 + rand() * 0.028, Math.sin(a) * r);
+    } else {
+      const a = jitter(angSpread / 2);
+      const falloff = 1 - Math.abs(a) / (angSpread / 2 + 0.001);
+      const yy = jitter(ySpread / 2) * (0.4 + falloff * 0.6);
+      const rr = baseR + 0.004 + rand() * 0.022 * falloff;
+      p.set(Math.sin(a) * rr, yy, Math.cos(a) * rr);
+    }
+    e.set(rand() * Math.PI, rand() * Math.PI, rand() * Math.PI);
+    q.setFromEuler(e);
+    const s0 = 0.006 + rand() * 0.013;
+    sc.set(s0, s0 * (0.65 + rand() * 0.7), s0);
+    m.compose(p, q, sc);
+    im.setMatrixAt(i, m);
+    col.set(GREENS[Math.floor(rand() * GREENS.length)]);
+    col.offsetHSL(jitter(0.015), jitter(0.08), jitter(0.05));
+    im.setColorAt(i, col);
+  }
+  im.castShadow = true;
+  im.receiveShadow = true;
+  return im;
+}
+
+// daisy the way the photos have them: many thin white petals, domed center
+function daisyHead(s, petalColor = 0xfdfaf2) {
+  const g = new THREE.Group();
+  const mat = matOf(petalColor, 0.62);
+  const n = 13;
+  for (let i = 0; i < n; i++) {
+    const yaw = new THREE.Group();
+    yaw.rotation.y = -(i / n) * Math.PI * 2 + jitter(0.08);
+    const tilt = new THREE.Group();
+    tilt.rotation.z = -0.22 + jitter(0.09); // petals lift slightly, like real ones
+    const petal = new THREE.Mesh(PETAL_GEO, mat);
+    petal.scale.set(s * 0.5, s * 0.028, s * 0.115);
+    petal.position.x = s * 0.44;
+    petal.castShadow = true;
+    tilt.add(petal); yaw.add(tilt); g.add(yaw);
+  }
+  const c = new THREE.Mesh(TINY_GEO, matOf(0xdfa32e, 0.95));
+  c.scale.set(s * 0.15, s * 0.1, s * 0.15);
+  c.position.y = s * 0.02;
+  g.add(c);
+  return g;
+}
+// small 5-petal wildflower in the colony's accent color
+function wildflowerHead(s, color) {
+  const g = new THREE.Group();
+  const mat = matOf(color, 0.6);
+  for (let i = 0; i < 5; i++) {
+    const yaw = new THREE.Group();
+    yaw.rotation.y = -(i / 5) * Math.PI * 2 + jitter(0.12);
+    const tilt = new THREE.Group();
+    tilt.rotation.z = -0.32 + jitter(0.1);
+    const petal = new THREE.Mesh(PETAL_GEO, mat);
+    petal.scale.set(s * 0.42, s * 0.035, s * 0.24);
+    petal.position.x = s * 0.32;
+    petal.castShadow = true;
+    tilt.add(petal); yaw.add(tilt); g.add(yaw);
+  }
+  const c = new THREE.Mesh(TINY_GEO, matOf(0xf2e39a, 0.95));
+  c.scale.setScalar(s * 0.1);
+  g.add(c);
+  return g;
+}
+// spire of tiny florets (lavender / veronica)
+function spikeHead(s, color) {
+  const g = new THREE.Group();
+  const mat = matOf(color, 0.65);
+  for (let i = 0; i < 10; i++) {
+    const tt = i / 9;
+    const b = new THREE.Mesh(TINY_GEO, mat);
+    b.scale.setScalar(s * (0.085 - tt * 0.045));
+    b.position.set(jitter(s * 0.035), s * tt * 0.5, jitter(s * 0.035));
+    b.castShadow = true;
+    g.add(b);
+  }
+  return g;
+}
+function budHead(s, color) {
+  const b = new THREE.Mesh(TINY_GEO, matOf(color, 0.65));
+  b.scale.set(s * 0.09, s * 0.13, s * 0.09);
+  b.castShadow = true;
+  return b;
+}
+
+// one plant: curved stem out of the moss + a head; head types weighted so
+// white daisies dominate, accents appear here and there
+function plant(kind, len, s, accent) {
+  const g = new THREE.Group();
+  // stem: gentle arc rising from origin along +y with lateral lean stored on g
+  const bend = jitter(0.35);
+  const pts = [
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(bend * len * 0.3, len * 0.45, jitter(0.06) * len),
+    new THREE.Vector3(bend * len * 0.75, len * 0.85, jitter(0.09) * len),
+    new THREE.Vector3(bend * len, len, jitter(0.1) * len),
+  ];
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const stem = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.0075, 6, false), stemMat);
+  stem.castShadow = true;
+  g.add(stem);
+
+  const end = pts[3];
+  let head;
+  if (kind === 'daisy') head = daisyHead(s);
+  else if (kind === 'wild') head = wildflowerHead(s, accent);
+  else if (kind === 'spike') head = spikeHead(s * 1.4, accent);
+  else head = budHead(s * 1.2, accent);
+  head.position.copy(end);
+  const tangent = curve.getTangent(1);
+  head.quaternion.setFromUnitVectors(UP, tangent.multiplyScalar(0.55).add(UP).normalize());
+  g.add(head);
+  return g;
+}
+function grassBlade(len) {
+  const blade = new THREE.Mesh(STEMLET_GEO, matOf(GREENS[Math.floor(rand() * GREENS.length)], 0.85));
+  blade.scale.set(0.006, len, 0.006);
+  blade.position.y = len / 2;
+  return blade;
+}
+
+// a full colony: moss patch + flora bursting from it, oriented on the pole
+function makeColony(accent, { flowers = 10, grasses = 6, flat = false, spreadR = 0.26, mossCount = 420 }) {
+  const g = new THREE.Group();
+  const flora = new THREE.Group();
+
+  const moss = flat
+    ? mossPatch({ count: mossCount, flat: true, spreadR })
+    : mossPatch({ count: mossCount, angSpread: 2.4, ySpread: 0.5, baseR: POLE_R });
+  g.add(moss);
+
+  for (let i = 0; i < flowers; i++) {
+    const r = rand();
+    const kind = r < 0.44 ? 'daisy' : r < 0.68 ? 'wild' : r < 0.85 ? 'spike' : 'bud';
+    const len = 0.2 + rand() * 0.38;
+    const s = 0.115 + rand() * 0.08;
+    const pl = plant(kind, len, s, accent);
+    if (flat) {
+      const a = rand() * Math.PI * 2;
+      const rr = Math.sqrt(rand()) * spreadR * 0.85;
+      pl.position.set(Math.cos(a) * rr, 0.015, Math.sin(a) * rr);
+      pl.quaternion.setFromUnitVectors(UP, new THREE.Vector3(jitter(0.3), 1, jitter(0.3)).normalize());
+    } else {
+      // rooted on the pole surface within the moss band, growing outward-up
+      const a = jitter(1.0);
+      const yy = jitter(0.2);
+      pl.position.set(Math.sin(a) * (POLE_R + 0.01), yy, Math.cos(a) * (POLE_R + 0.01));
+      const out = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
+      const dir = out.multiplyScalar(0.55 + rand() * 0.35).add(new THREE.Vector3(0, 0.85, 0)).normalize();
+      pl.quaternion.setFromUnitVectors(UP, dir);
+    }
+    flora.add(pl);
+  }
+  for (let i = 0; i < grasses; i++) {
+    const blade = grassBlade(0.14 + rand() * 0.2);
+    if (flat) {
+      const a = rand() * Math.PI * 2;
+      const rr = Math.sqrt(rand()) * spreadR;
+      blade.position.x += Math.cos(a) * rr;
+      blade.position.z += Math.sin(a) * rr;
+      blade.rotation.set(jitter(0.35), 0, jitter(0.35));
+    } else {
+      const a = jitter(1.1);
+      blade.position.set(Math.sin(a) * (POLE_R + 0.015), jitter(0.2), Math.cos(a) * (POLE_R + 0.015));
+      blade.rotation.set(jitter(0.3) + Math.sin(a) * 0.5, 0, jitter(0.3) - Math.cos(a) * 0.5);
+    }
+    flora.add(blade);
+  }
+  g.add(flora);
+  g.userData.flora = flora;
+  return g;
+}
+
+/* --------------------------------- quartz --------------------------------- */
+function quartzCluster(s) {
+  const g = new THREE.Group();
+  const n = 6 + Math.floor(rand() * 3);
+  for (let i = 0; i < n; i++) {
+    const len = s * (0.5 + rand() * 0.9);
+    const r = s * (0.09 + rand() * 0.07);
+    const crystal = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.82, r, len, 6), quartzMat);
+    shaft.position.y = len / 2;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(r * 0.82, r * 2.2, 6), quartzMat);
+    tip.position.y = len + r * 1.1;
+    shaft.castShadow = tip.castShadow = true;
+    crystal.add(shaft, tip);
+    const a = rand() * Math.PI * 2;
+    const lean = rand() * 0.9;
+    crystal.quaternion.setFromUnitVectors(
+      UP,
+      new THREE.Vector3(Math.cos(a) * lean, 1, Math.sin(a) * lean).normalize()
+    );
+    crystal.position.set(jitter(s * 0.16), 0, jitter(s * 0.16));
+    g.add(crystal);
+  }
+  return g;
+}
+
+/* ------------------------------ chrome makers ----------------------------- */
+function makeChromeKnot(s) {
+  const m = new THREE.Mesh(new THREE.TorusKnotGeometry(s * 0.62, s * 0.2, 160, 20), chromeMat);
+  m.castShadow = true;
+  return m;
+}
+function makeChromeBlob(s) {
+  const geo = new THREE.IcosahedronGeometry(s * 0.8, 4);
+  const p = geo.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.set(p.getX(i), p.getY(i), p.getZ(i));
+    const n = v.clone().normalize();
+    const d =
+      Math.sin(v.x * 4.1 + 1.3) * 0.45 +
+      Math.sin(v.y * 3.6 + 4.2) * 0.35 +
+      Math.sin(v.z * 4.4 + 7.7) * 0.4;
+    v.addScaledVector(n, d * s * 0.15);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, chromeMat);
+  m.castShadow = true;
+  return m;
+}
+function makeChromeHelix(s) {
+  const pts = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    const a = t * Math.PI * 4.5;
+    pts.push(new THREE.Vector3(Math.cos(a) * s * 0.45, (t - 0.5) * s * 1.3, Math.sin(a) * s * 0.45));
+  }
+  const m = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, s * 0.13, 12, false),
+    chromeMat
+  );
+  m.castShadow = true;
+  return m;
+}
+function makeChromeSpheres(s) {
+  const g = new THREE.Group();
+  const defs = [
+    [0, 0, 0, 0.5], [0.42, 0.18, 0.1, 0.36], [-0.35, 0.3, -0.15, 0.3],
+    [0.1, 0.5, 0.22, 0.24], [-0.15, -0.28, 0.3, 0.26],
+  ];
+  for (const [x, y, z, r] of defs) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(s * r, 32, 24), chromeMat);
+    b.position.set(x * s, y * s, z * s);
+    b.castShadow = true;
+    g.add(b);
+  }
+  return g;
+}
+function makeChrome(variant, s) {
+  if (variant === 'knot') return makeChromeKnot(s);
+  if (variant === 'blob') return makeChromeBlob(s);
+  if (variant === 'helix') return makeChromeHelix(s);
+  return makeChromeSpheres(s);
+}
+
+/* ------------------------------- mounting --------------------------------- */
+const artefacts = [];
+const hitMeshes = [];
+const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+
+function registerHit(parent, localPos, r, art) {
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 8), hitMat);
+  hit.position.copy(localPos);
+  parent.add(hit);
+  hit.userData.artefact = art;
+  hitMeshes.push(hit);
+  return hit;
+}
+
+// a moss colony clamped nowhere — it simply took hold of the pole
+function mountColony(post, { height, angleDeg, flowers = 10 }) {
+  const pivot = new THREE.Group();
+  pivot.position.y = height;
+  pivot.rotation.y = (angleDeg * Math.PI) / 180;
+  scene.add(pivot);
+
+  const root = new THREE.Group();
+  pivot.add(root);
+
+  const colony = makeColony(post.accent, { flowers });
+  root.add(colony);
+
+  const art = { post, root, head: colony.userData.flora, kind: 'flower', phase: rand() * Math.PI * 2, spin: 0 };
+  registerHit(root, new THREE.Vector3(0, 0.06, POLE_R + 0.16), 0.38, art);
+  artefacts.push(art);
+}
+
+// chrome pieces bolt on with black arms + clamps, like the signs
+function mountChrome(post, { height, angleDeg, dist, s }) {
+  const pivot = new THREE.Group();
+  pivot.position.y = height;
+  pivot.rotation.y = (angleDeg * Math.PI) / 180;
+  scene.add(pivot);
+
+  addClampRing(height);
+
+  const root = new THREE.Group();
+  pivot.add(root);
+
+  const armLen = dist + POLE_R * 0.7;
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, armLen, 16), armMat);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.z = POLE_R * 0.3 + armLen / 2;
+  arm.castShadow = true;
+  root.add(arm);
+
+  const holder = new THREE.Group();
+  holder.position.z = POLE_R + dist + s * 0.72;
+  root.add(holder);
+
+  const obj = makeChrome(post.variant, s);
+  obj.rotation.set(jitter(0.5), rand() * Math.PI * 2, jitter(0.5));
+  holder.add(obj);
+
+  const art = { post, root, head: holder, kind: 'chrome', phase: rand() * Math.PI * 2, spin: 0.25 + rand() * 0.25 };
+  registerHit(root, holder.position, Math.max(0.32, s * 0.85), art);
+  artefacts.push(art);
+}
+
+function mountSign(post, group, { height, angleDeg, dist, halfW }) {
+  const pivot = new THREE.Group();
+  pivot.position.y = height;
+  pivot.rotation.y = (angleDeg * Math.PI) / 180;
+  scene.add(pivot);
+
+  addClampRing(height);
+
+  const root = new THREE.Group();
+  pivot.add(root);
+
+  const holder = new THREE.Group();
+  holder.position.z = POLE_R + dist;
+  holder.rotation.set(jitter(0.03), jitter(0.08), jitter(0.04));
+  root.add(holder);
+  holder.add(group);
+
+  const armLen = dist + POLE_R * 0.7;
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, armLen, 16), armMat);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.z = POLE_R * 0.3 + armLen / 2;
+  arm.castShadow = true;
+  root.add(arm);
+
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.02), armMat);
+  plate.position.z = -0.01;
+  group.add(plate);
+
+  const art = { post, root, head: holder, kind: 'sign', phase: rand() * Math.PI * 2, spin: 0 };
+  registerHit(root, holder.position, Math.max(0.34, halfW), art);
+  artefacts.push(art);
+  return { pivot, group };
+}
+
+// moss creeping along the top edge of a sign, with a couple of daisies —
+// the wayfinding being reclaimed too
+function mossOnSignTop(group, width, yTop) {
+  const im = new THREE.InstancedMesh(MOSS_GEO, mossMat, 70);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+  const e = new THREE.Euler();
+  const col = new THREE.Color();
+  for (let i = 0; i < 70; i++) {
+    p.set(jitter(width / 2), yTop + rand() * 0.02, jitter(SIGN_T)+ SIGN_T / 2);
+    e.set(rand() * Math.PI, rand() * Math.PI, rand() * Math.PI);
+    q.setFromEuler(e);
+    const s0 = 0.005 + rand() * 0.011;
+    sc.set(s0, s0 * (0.7 + rand() * 0.6), s0);
+    m.compose(p, q, sc);
+    im.setMatrixAt(i, m);
+    col.set(GREENS[Math.floor(rand() * GREENS.length)]);
+    col.offsetHSL(jitter(0.015), jitter(0.08), jitter(0.05));
+    im.setColorAt(i, col);
+  }
+  im.castShadow = true;
+  group.add(im);
+  for (let i = 0; i < 2; i++) {
+    const pl = plant(i === 0 ? 'daisy' : 'wild', 0.1 + rand() * 0.08, 0.07 + rand() * 0.03, 0xd98a9e);
+    pl.position.set(jitter(width / 2.4), yTop + 0.01, SIGN_T / 2);
+    pl.quaternion.setFromUnitVectors(UP, new THREE.Vector3(jitter(0.25), 1, 0.2 + jitter(0.15)).normalize());
+    group.add(pl);
+  }
+}
+
+/* ------------------------------ composition ------------------------------- */
+const GOLDEN = 137.508;
+let angleCursor = rand() * 360;
+function nextAngle() {
+  angleCursor += GOLDEN + jitter(16);
+  return angleCursor % 360;
+}
+const byId = Object.fromEntries(POSTS.map((p) => [p.id, p]));
+
+// signage — the wayfinding backbone
+const bladeArchive = mountSign(
+  { id: '__index', kind: 'sign', tag: 'index' },
+  buildBladeSign(1.5, 0.42, artBlade('ARCHIVE', '#0f5bd8', '#ffffff', true), true),
+  { height: 6.5, angleDeg: nextAngle(), dist: 0.34, halfW: 0.75 }
+);
+mossOnSignTop(bladeArchive.group, 1.15, 0.21);
+
+mountSign(byId.about,
+  buildBladeSign(1.4, 0.42, artBlade('ABOUT', '#111111', '#ffffff', false), false),
+  { height: 6.18, angleDeg: nextAngle(), dist: 0.3, halfW: 0.7 });
+
+mountSign(byId.how, buildCircleSign(0.4, artInfinity()),
+  { height: 4.62, angleDeg: nextAngle(), dist: 0.3 + rand() * 0.2, halfW: 0.4 });
+
+const warnSign = mountSign(byId.warning, buildTriangleSign(0.85, artWarning()),
+  { height: 1.32, angleDeg: nextAngle(), dist: 0.28 + rand() * 0.2, halfW: 0.45 });
+mossOnSignTop(warnSign.group, 0.5, -0.32); // moss gathers on the triangle's bottom lip
+
+// the growing archive — moss colonies and chrome interleaved up the pole
+mountChrome(byId.loadbearing,       { height: 5.62, angleDeg: nextAngle(), dist: 0.3, s: 0.34 });
+mountColony(byId.garden,            { height: 5.12, angleDeg: nextAngle(), flowers: 11 });
+mountColony(byId.drift,             { height: 4.2,  angleDeg: nextAngle(), flowers: 9 });
+mountChrome(byId.liquidmetal,       { height: 3.78, angleDeg: nextAngle(), dist: 0.26, s: 0.36 });
+mountColony(byId.elevators,         { height: 3.36, angleDeg: nextAngle(), flowers: 12 });
+mountColony(byId.tender,            { height: 2.95, angleDeg: nextAngle(), flowers: 9 });
+mountChrome(byId.doorhandles,       { height: 2.5,  angleDeg: nextAngle(), dist: 0.3, s: 0.32 });
+mountColony(byId.tuesday,           { height: 2.08, angleDeg: nextAngle(), flowers: 11 });
+mountChrome(byId['chrome-honesty'], { height: 1.7,  angleDeg: nextAngle(), dist: 0.28, s: 0.3 });
+mountColony(byId.peonies,           { height: 0.92, angleDeg: nextAngle(), flowers: 10 });
+
+// quartz growing where nothing was planted
+for (const [h, s] of [[4.45, 0.24], [1.52, 0.19]]) {
+  const pivot = new THREE.Group();
+  pivot.position.y = h;
+  pivot.rotation.y = rand() * Math.PI * 2;
+  const q = quartzCluster(s);
+  q.position.z = POLE_R + 0.01;
+  q.rotation.x = Math.PI / 2 - 0.35; // fan outward from the pole
+  pivot.add(q);
+  scene.add(pivot);
+}
+
+// spare clamps so the pole still reads as street furniture
+addClampRing(0.45, false);
+addClampRing(5.9);
+addClampRing(7.05, false);
+
+/* --------------------- the ground being reclaimed too ---------------------- */
+{
+  // moss ring at the pole's foot with daisies pushing through
+  const foot = makeColony(0xd98a9e, { flowers: 8, grasses: 8, flat: true, spreadR: 0.42, mossCount: 520 });
+  foot.position.y = 0.02;
+  scene.add(foot);
+  for (let i = 0; i < 3; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 1.1 + rand() * 1.4;
+    const tuft = makeColony([0xe8b64c, 0x9d84c9, 0x7b89c9][i], { flowers: 4, grasses: 5, flat: true, spreadR: 0.2, mossCount: 170 });
+    tuft.position.set(Math.cos(a) * r, 0.01, Math.sin(a) * r);
+    scene.add(tuft);
+  }
+}
+// fallen petals
+const petalDropMat = matOf(0xf0e4de, 0.7);
+for (let i = 0; i < 7; i++) {
+  const p = new THREE.Mesh(PETAL_GEO, petalDropMat);
+  const a = rand() * Math.PI * 2;
+  const r = 0.4 + rand() * 1.6;
+  p.position.set(Math.cos(a) * r, 0.008, Math.sin(a) * r);
+  p.scale.set(0.05, 0.007, 0.024);
+  p.rotation.y = rand() * Math.PI * 2;
+  p.receiveShadow = true;
+  scene.add(p);
+}
+// petals forever falling
+const fallers = [];
+for (let i = 0; i < 6; i++) {
+  const p = new THREE.Mesh(PETAL_GEO, petalDropMat);
+  p.scale.set(0.045, 0.006, 0.022);
+  p.castShadow = true;
+  scene.add(p);
+  fallers.push({
+    mesh: p,
+    a: rand() * Math.PI * 2,
+    r: 0.45 + rand() * 0.7,
+    y: rand() * 6,
+    speed: 0.16 + rand() * 0.1,
+    phase: rand() * Math.PI * 2,
+  });
+}
+
+/* ------------------------------ reading veil ------------------------------- */
+const veil = document.getElementById('veil');
+const sheet = document.getElementById('sheet');
+const articleEl = document.getElementById('article');
+const indexEl = document.getElementById('indexList');
+const idxUl = document.getElementById('idx-ul');
+let veilOpen = false;
+
+const TAG_COLORS = {
+  life: '#d98a9e', misc: '#e8b64c', absurd: '#9d84c9',
+  design: '#8a8f98', company: '#8a8f98', work: '#8a8f98',
+  about: '#0f5bd8', wayfinding: '#d92b2b', manifesto: '#d92b2b',
+};
+
+function openWriting(post) {
+  articleEl.classList.remove('off');
+  indexEl.classList.remove('on');
+  document.getElementById('w-dot').style.background = TAG_COLORS[post.tag] || '#111';
+  document.getElementById('w-tag').textContent = post.tag;
+  document.getElementById('w-date').textContent = post.date;
+  document.getElementById('w-title').textContent = post.title;
+  document.getElementById('w-body').textContent = post.body;
+  veil.classList.add('open');
+  veilOpen = true;
+  controls.autoRotate = false;
+}
+function openIndex() {
+  articleEl.classList.add('off');
+  indexEl.classList.add('on');
+  idxUl.innerHTML = '';
+  for (const post of POSTS) {
+    const li = document.createElement('li');
+    const dot = document.createElement('span');
+    dot.className = 'idot';
+    dot.style.background = TAG_COLORS[post.tag] || '#111';
+    const title = document.createElement('span');
+    title.className = 'ititle';
+    title.textContent = post.title;
+    const tag = document.createElement('span');
+    tag.className = 'itag';
+    tag.textContent = post.tag;
+    const date = document.createElement('span');
+    date.className = 'idate';
+    date.textContent = post.date;
+    li.append(dot, title, tag, date);
+    li.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openWriting(post);
+    });
+    idxUl.appendChild(li);
+  }
+  veil.classList.add('open');
+  veilOpen = true;
+  controls.autoRotate = false;
+}
+function closeVeil() {
+  veil.classList.remove('open');
+  veilOpen = false;
+  controls.autoRotate = true;
+}
+veil.addEventListener('click', closeVeil);
+sheet.addEventListener('click', (e) => e.stopPropagation());
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeVeil(); });
+
+/* ------------------------------ interaction -------------------------------- */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(-10, -10);
+let hovered = null;
+let pointerDown = { x: 0, y: 0, moved: false };
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  if (Math.abs(e.clientX - pointerDown.x) + Math.abs(e.clientY - pointerDown.y) > 6) {
+    pointerDown.moved = true;
+  }
+});
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pointerDown = { x: e.clientX, y: e.clientY, moved: false };
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (pointerDown.moved || veilOpen) return;
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(hitMeshes, false);
+  if (!hits.length) return;
+  const art = hits[0].object.userData.artefact;
+  if (art.post.id === '__index') openIndex();
+  else openWriting(art.post);
+});
+
+/* -------------------------------- animate ---------------------------------- */
+const clock = new THREE.Clock();
+let introT = 0;
+for (const a of artefacts) a.root.scale.setScalar(0.0001);
+
+function easeOutBack(t) {
+  const c1 = 1.30158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+const introOrder = [...artefacts].sort((a, b) => a.root.parent.position.y - b.root.parent.position.y);
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  introT += dt;
+
+  introOrder.forEach((a, i) => {
+    const local = THREE.MathUtils.clamp((introT - 0.3 - i * 0.1) / 0.6, 0, 1);
+    const k = local >= 1 ? 1 : Math.max(0.0001, easeOutBack(local));
+    const hoverK = a === hovered ? 1.06 : 1;
+    a.root.scale.setScalar(k * THREE.MathUtils.lerp(a.root.userData.hk ?? 1, hoverK, 0.15));
+    a.root.userData.hk = a.root.scale.x / Math.max(k, 0.0001);
+  });
+
+  for (const a of artefacts) {
+    if (a.kind === 'chrome') {
+      a.head.rotation.y += a.spin * dt;
+    } else if (a.kind === 'flower') {
+      a.head.rotation.z = Math.sin(t * 0.85 + a.phase) * 0.02;
+      a.head.rotation.x = Math.cos(t * 0.7 + a.phase) * 0.014;
+    } else {
+      a.head.rotation.z = Math.sin(t * 0.7 + a.phase) * 0.006;
+    }
+  }
+
+  for (const f of fallers) {
+    f.y -= f.speed * dt;
+    if (f.y < 0.01) f.y = 5.8 + rand();
+    f.a += dt * 0.25;
+    f.mesh.position.set(
+      Math.cos(f.a) * (f.r + Math.sin(t + f.phase) * 0.1),
+      f.y,
+      Math.sin(f.a) * (f.r + Math.cos(t * 0.8 + f.phase) * 0.1)
+    );
+    f.mesh.rotation.x = t * 1.2 + f.phase;
+    f.mesh.rotation.y = t * 0.7 + f.phase;
+  }
+
+  if (!veilOpen) {
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(hitMeshes, false);
+    const found = hits.length ? hits[0].object.userData.artefact : null;
+    if (found !== hovered) {
+      hovered = found;
+      document.body.style.cursor = hovered ? 'pointer' : 'default';
+    }
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+document.getElementById('loader').classList.add('done');
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

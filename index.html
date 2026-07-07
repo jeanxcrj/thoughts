@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>thoughts — Jean Chen</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="apple-touch-icon" href="favicon.png" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #f6f6f3; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  .ui {
+    position: fixed;
+    z-index: 10;
+    pointer-events: none;
+    color: #111;
+    user-select: none;
+  }
+  .title {
+    top: 34px; left: 40px;
+  }
+  .title h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+  }
+  .title p {
+    margin-top: 7px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #9a9a9a;
+    text-transform: uppercase;
+  }
+  .hint {
+    bottom: 32px; left: 40px;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: #b3b3b3;
+    text-transform: uppercase;
+    line-height: 1.9;
+  }
+  .index {
+    bottom: 32px; right: 40px;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: #b3b3b3;
+    text-transform: uppercase;
+    text-align: right;
+  }
+  #loader {
+    position: fixed; inset: 0; z-index: 20;
+    background: #f6f6f3;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; letter-spacing: 0.3em; color: #999;
+    text-transform: uppercase;
+    transition: opacity 0.8s ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+
+  /* ---------------- writings: a clean centered card ---------------- */
+  #page {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(25, 25, 45, 0.22);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 4vh 18px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.28s ease;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  #page.open { opacity: 1; pointer-events: auto; }
+
+  .modal {
+    position: relative;
+    width: min(800px, 94vw);
+    max-height: 86vh;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 30px 80px rgba(20, 20, 50, 0.25), 0 4px 16px rgba(20, 20, 50, 0.08);
+    display: flex; flex-direction: column;
+    cursor: default;
+    transform: translateY(12px) scale(0.985);
+    transition: transform 0.4s cubic-bezier(0.2, 1.2, 0.4, 1);
+    overflow: hidden;
+  }
+  #page.open .modal { transform: translateY(0) scale(1); }
+
+  .m-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 30px; height: 30px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #9b9b96; cursor: pointer;
+    z-index: 2;
+  }
+  .m-close:hover { background: #f1f1ef; color: #37352f; }
+
+  .m-body {
+    overflow-y: auto;
+    padding: 44px 52px 48px;
+  }
+  .m-icon { font-size: 46px; line-height: 1; user-select: none; }
+  .m-title {
+    font-size: 30px; font-weight: 700; color: #37352f;
+    letter-spacing: -0.015em; line-height: 1.25;
+    margin: 12px 0 8px;
+  }
+  .m-meta {
+    font-size: 13.5px; color: #9b9b96;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    padding-bottom: 18px; margin-bottom: 22px;
+    border-bottom: 1px solid #ededeb;
+  }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 12px; font-weight: 500;
+  }
+  .pill.violet { background: rgba(124,102,223,0.16); color: #5b46b8; }
+  .pill.peri   { background: rgba(143,143,224,0.2);  color: #4d4dae; }
+  .pill.teal   { background: rgba(103,212,187,0.24); color: #157a63; }
+  .pill.lime   { background: rgba(176,242,90,0.32);  color: #4d7208; }
+  .pill.lilac  { background: rgba(204,204,242,0.45); color: #5f5fae; }
+  .pill.gray   { background: #f1f1ef; color: #6b6b66; }
+
+  .pg-content { font-size: 16px; line-height: 1.75; color: #37352f; }
+  .pg-content p { margin-bottom: 14px; }
+  .pg-content h2 { font-size: 21px; font-weight: 700; margin: 24px 0 8px; letter-spacing: -0.01em; }
+  .pg-content .quote {
+    border-left: 3px solid #37352f; padding-left: 14px;
+    font-style: italic; margin: 18px 0;
+  }
+  .pg-content .callout {
+    background: #f7f6f3; border-radius: 8px;
+    padding: 13px 15px; display: flex; gap: 10px; margin: 4px 0 18px;
+    font-size: 15px; line-height: 1.65;
+  }
+  .pg-content .callout .ce { flex: none; font-size: 18px; }
+  .pg-content .divider { height: 1px; background: #ededeb; margin: 22px 0; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="loader"></div>
+
+<div id="page">
+  <div class="modal" id="plaque">
+    <div class="m-close" id="pg-close">✕</div>
+    <div class="m-body">
+      <div class="m-icon" id="pg-icon"></div>
+      <h1 class="m-title" id="pg-title"></h1>
+      <div class="m-meta" id="pg-meta"></div>
+      <div class="pg-content" id="pg-content"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ---------------------------------- rng ---------------------------------- */
+// Seeded so the composition stays curated between reloads.
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260707);
+const jitter = (amt) => (rand() * 2 - 1) * amt;
+
+/* ------------------------------- renderer -------------------------------- */
+const container = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf6f6f3);
+scene.fog = new THREE.Fog(0xf6f6f3, 26, 70);
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 120);
+camera.position.set(3.1, 2.75, 5.1);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 3.6, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 3.2;
+controls.maxDistance = 26;
+controls.maxPolarAngle = Math.PI * 0.55;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.55;
+
+// Subtle image-based reflections for the metals.
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+/* -------------------------------- lights --------------------------------- */
+const hemi = new THREE.HemisphereLight(0xffffff, 0xeaeaea, 0.7);
+scene.add(hemi);
+
+const key = new THREE.DirectionalLight(0xffffff, 1.9);
+key.position.set(6, 11, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 30;
+key.shadow.camera.left = -6;
+key.shadow.camera.right = 6;
+key.shadow.camera.top = 9;
+key.shadow.camera.bottom = -3;
+key.shadow.bias = -0.0002;
+key.shadow.radius = 9;
+key.shadow.blurSamples = 16;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xffffff, 0.75);
+fill.position.set(-7, 5, -4);
+scene.add(fill);
+
+/* -------------------------------- ground --------------------------------- */
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(45, 64),
+  new THREE.MeshStandardMaterial({ color: 0xf6f6f3, roughness: 0.96, metalness: 0 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ------------------------------- materials ------------------------------- */
+const poleMat  = new THREE.MeshStandardMaterial({ color: 0x8f8fe0, metalness: 0.35, roughness: 0.5 });
+const armMat   = new THREE.MeshStandardMaterial({ color: 0x7c66df, metalness: 0.4, roughness: 0.48 });
+const clampMat = new THREE.MeshStandardMaterial({ color: 0x7c66df, metalness: 0.5, roughness: 0.4 });
+const frameMat = new THREE.MeshStandardMaterial({ color: 0xd4d6d9, metalness: 0.9, roughness: 0.3 });
+const backMat  = new THREE.MeshStandardMaterial({ color: 0xcfd1d4, metalness: 0.5, roughness: 0.55 });
+
+/* --------------------------------- pole ---------------------------------- */
+const POLE_H = 7.4;
+const POLE_R = 0.095;
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, POLE_H, 32), poleMat);
+pole.position.y = POLE_H / 2;
+pole.castShadow = true;
+pole.receiveShadow = true;
+scene.add(pole);
+
+// Rounded cap on top
+const cap = new THREE.Mesh(new THREE.SphereGeometry(POLE_R, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), poleMat);
+cap.position.y = POLE_H;
+cap.castShadow = true;
+scene.add(cap);
+
+// Base flange
+const base = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R * 2.4, POLE_R * 2.9, 0.09, 32), clampMat);
+base.position.y = 0.045;
+base.castShadow = true;
+base.receiveShadow = true;
+scene.add(base);
+const baseRing = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R * 1.5, POLE_R * 1.5, 0.16, 32), clampMat);
+baseRing.position.y = 0.12;
+baseRing.castShadow = true;
+scene.add(baseRing);
+
+/* --------------------------- canvas sign artwork -------------------------- */
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return [c, c.getContext('2d')];
+}
+function toTexture(canvas) {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+function drawArrow(ctx, x, y, len, thick, dir = 1) {
+  // dir: 1 = right, -1 = left
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  ctx.beginPath();
+  const headL = thick * 1.9, headW = thick * 1.75;
+  ctx.moveTo(-len / 2, -thick / 2);
+  ctx.lineTo(len / 2 - headL, -thick / 2);
+  ctx.lineTo(len / 2 - headL, -headW);
+  ctx.lineTo(len / 2, 0);
+  ctx.lineTo(len / 2 - headL, headW);
+  ctx.lineTo(len / 2 - headL, thick / 2);
+  ctx.lineTo(-len / 2, thick / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+
+// --- horizontal rectangle designs ---
+function artDirectionBlue(text, dir) {
+  const [c, ctx] = makeCanvas(1024, 342);
+  ctx.fillStyle = '#7c66df';
+  ctx.fillRect(0, 0, 1024, 342);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 130px ${FONT}`;
+  ctx.textBaseline = 'middle';
+  if (dir > 0) {
+    ctx.textAlign = 'left';
+    ctx.fillText(text, 70, 178);
+    drawArrow(ctx, 880, 171, 180, 34, 1);
+  } else {
+    ctx.textAlign = 'right';
+    ctx.fillText(text, 954, 178);
+    drawArrow(ctx, 144, 171, 180, 34, -1);
+  }
+  return c;
+}
+function artExitGreen() {
+  const [c, ctx] = makeCanvas(1024, 342);
+  ctx.fillStyle = '#67d4bb';
+  ctx.fillRect(0, 0, 1024, 342);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(26, 26, 972, 290);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 150px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('EXIT 12', 512, 180);
+  return c;
+}
+function artMuseumBlack() {
+  const [c, ctx] = makeCanvas(1024, 342);
+  ctx.fillStyle = '#8f8fe0';
+  ctx.fillRect(0, 0, 1024, 342);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 66px ${FONT}`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('UNLEARNING', 954, 128);
+  ctx.fillText('DESIGN', 954, 216);
+  drawArrow(ctx, 150, 171, 190, 34, -1);
+  return c;
+}
+
+// --- vertical rectangle designs ---
+function artOneWay() {
+  const [c, ctx] = makeCanvas(400, 1024);
+  ctx.fillStyle = '#67d4bb';
+  ctx.fillRect(0, 0, 400, 1024);
+  ctx.fillStyle = '#ffffff';
+  // up arrow
+  ctx.save();
+  ctx.translate(200, 250);
+  ctx.rotate(-Math.PI / 2);
+  drawArrow(ctx, 0, 0, 300, 52, 1);
+  ctx.restore();
+  ctx.font = `bold 105px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('ONE', 200, 570);
+  ctx.fillText('WAY', 200, 700);
+  ctx.fillRect(60, 810, 280, 12);
+  ctx.font = `bold 56px ${FONT}`;
+  ctx.fillText('N°7', 200, 900);
+  return c;
+}
+function artKilometer() {
+  const [c, ctx] = makeCanvas(400, 1024);
+  ctx.fillStyle = '#f5f5f3';
+  ctx.fillRect(0, 0, 400, 1024);
+  ctx.fillStyle = '#7c66df';
+  ctx.fillRect(0, 0, 400, 190);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 92px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('KM', 200, 102);
+  ctx.fillStyle = '#7c66df';
+  ctx.font = `bold 300px ${FONT}`;
+  ctx.fillText('4', 200, 480);
+  ctx.fillText('2', 200, 790);
+  return c;
+}
+
+// --- square designs ---
+function artParking() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = '#7c66df';
+  ctx.fillRect(0, 0, 640, 640);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 14;
+  ctx.strokeRect(30, 30, 580, 580);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 420px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P', 320, 348);
+  return c;
+}
+function artHazardStripes() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = '#b0f25a';
+  ctx.fillRect(0, 0, 640, 640);
+  ctx.fillStyle = '#7c66df';
+  const s = 110;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, 640, 640);
+  ctx.clip();
+  for (let i = -8; i < 10; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * s, 700);
+    ctx.lineTo(i * s + 700, 0);
+    ctx.lineTo(i * s + 700 + s / 2, 0);
+    ctx.lineTo(i * s + s / 2, 700);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+  return c;
+}
+
+// --- circle designs ---
+function artSpeed30() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#7c66df';
+  ctx.lineWidth = 62;
+  ctx.beginPath(); ctx.arc(320, 320, 278, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#7c66df';
+  ctx.font = `bold 250px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('30', 320, 338);
+  return c;
+}
+function artNoEntry() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = '#7c66df';
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  const w = 420, h = 96;
+  ctx.fillRect(320 - w / 2, 320 - h / 2, w, h);
+  return c;
+}
+function artMandatoryUp() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = '#7c66df';
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 18;
+  ctx.beginPath(); ctx.arc(320, 320, 288, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.save();
+  ctx.translate(320, 320);
+  ctx.rotate(-Math.PI / 4);
+  drawArrow(ctx, 0, 0, 330, 58, 1);
+  ctx.restore();
+  return c;
+}
+
+// --- triangle designs (drawn to fit the triangle's bounding box) ---
+function artWarning() {
+  const [c, ctx] = makeCanvas(640, 576);
+  // white triangle with red border, exclamation mark
+  const apex = [320, 26], bl = [30, 546], br = [610, 546];
+  const tri = (inset) => {
+    const cx = 320, cy = 372; // rough centroid
+    ctx.beginPath();
+    [[apex, 0], [br, 1], [bl, 2]].forEach(([p], i) => {
+      const x = p[0] + (cx - p[0]) * inset;
+      const y = p[1] + (cy - p[1]) * inset;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  };
+  ctx.fillStyle = '#7c66df';
+  tri(0); ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  tri(0.22); ctx.fill();
+  ctx.fillStyle = '#7c66df';
+  ctx.font = `bold 230px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('!', 320, 400);
+  return c;
+}
+function artYield() {
+  const [c, ctx] = makeCanvas(640, 576);
+  const apex = [320, 26], bl = [30, 546], br = [610, 546];
+  const tri = (inset) => {
+    const cx = 320, cy = 372;
+    ctx.beginPath();
+    [[apex], [br], [bl]].forEach(([p], i) => {
+      const x = p[0] + (cx - p[0]) * inset;
+      const y = p[1] + (cy - p[1]) * inset;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  };
+  ctx.fillStyle = '#b0f25a';
+  tri(0); ctx.fill();
+  ctx.fillStyle = '#7c66df';
+  tri(0.16); ctx.fill();
+  ctx.fillStyle = '#b0f25a';
+  tri(0.3); ctx.fill();
+  ctx.fillStyle = '#7c66df';
+  ctx.font = `bold 120px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('7%', 320, 430);
+  return c;
+}
+
+/* --------------------------- geometry helpers ----------------------------- */
+const SIGN_T = 0.035;   // sign panel thickness
+const FRAME_W = 0.045;  // frame border width
+const FRAME_D = SIGN_T + 0.022;
+
+function remapUVsToBounds(geometry) {
+  geometry.computeBoundingBox();
+  const bb = geometry.boundingBox;
+  const sx = bb.max.x - bb.min.x, sy = bb.max.y - bb.min.y;
+  const pos = geometry.attributes.position;
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, (pos.getX(i) - bb.min.x) / sx, (pos.getY(i) - bb.min.y) / sy);
+  }
+  uv.needsUpdate = true;
+}
+
+function roundedPolygonShape(points, radius) {
+  const shape = new THREE.Shape();
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const p = points[i];
+    const prev = points[(i + n - 1) % n];
+    const next = points[(i + 1) % n];
+    const dPrev = p.clone().sub(prev).normalize();
+    const dNext = next.clone().sub(p).normalize();
+    const pA = p.clone().sub(dPrev.clone().multiplyScalar(radius));
+    const pB = p.clone().add(dNext.clone().multiplyScalar(radius));
+    if (i === 0) shape.moveTo(pA.x, pA.y); else shape.lineTo(pA.x, pA.y);
+    shape.quadraticCurveTo(p.x, p.y, pB.x, pB.y);
+  }
+  shape.closePath();
+  return shape;
+}
+
+/* ------------------------------ sign builders ----------------------------- */
+// Every builder returns a group whose back plane sits at z = 0 and faces +z.
+const faceMeshes = []; // for raycasting
+
+function faceMaterial(canvas) {
+  return new THREE.MeshStandardMaterial({
+    map: toTexture(canvas),
+    metalness: 0.35,
+    roughness: 0.42,
+  });
+}
+
+function buildRectSign(w, h, canvas) {
+  const g = new THREE.Group();
+  const faceMat = faceMaterial(canvas);
+  // box faces: +x -x +y -y +z -z  → texture on +z
+  const panel = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, SIGN_T),
+    [backMat, backMat, backMat, backMat, faceMat, backMat]
+  );
+  panel.position.z = SIGN_T / 2;
+  panel.castShadow = true;
+  panel.receiveShadow = true;
+  g.add(panel);
+  faceMeshes.push(panel);
+
+  // metal frame — four bars around the perimeter
+  const bars = [
+    [w + FRAME_W * 2, FRAME_W, 0, h / 2 + FRAME_W / 2],
+    [w + FRAME_W * 2, FRAME_W, 0, -h / 2 - FRAME_W / 2],
+    [FRAME_W, h, -w / 2 - FRAME_W / 2, 0],
+    [FRAME_W, h, w / 2 + FRAME_W / 2, 0],
+  ];
+  for (const [bw, bh, bx, by] of bars) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, FRAME_D), frameMat);
+    bar.position.set(bx, by, SIGN_T / 2);
+    bar.castShadow = true;
+    bar.receiveShadow = true;
+    g.add(bar);
+  }
+  g.userData.halfWidth = w / 2;
+  return g;
+}
+
+function buildCircleSign(r, canvas) {
+  const g = new THREE.Group();
+  // gray metal body
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, SIGN_T, 48), backMat);
+  body.rotation.x = Math.PI / 2;
+  body.position.z = SIGN_T / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+  // textured face, floated a hair in front
+  const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.995, 48), faceMaterial(canvas));
+  face.position.z = SIGN_T + 0.002;
+  face.receiveShadow = true;
+  g.add(face);
+  faceMeshes.push(face);
+  // circular metal rim
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r + 0.012, 0.032, 20, 64), frameMat);
+  rim.position.z = SIGN_T / 2;
+  rim.castShadow = true;
+  rim.receiveShadow = true;
+  g.add(rim);
+  g.userData.halfWidth = r;
+  return g;
+}
+
+function buildShapeSign(shape, halfW, canvas) {
+  const g = new THREE.Group();
+
+  // gray metal body (extruded, slightly rounded corners)
+  const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: SIGN_T, bevelEnabled: false, curveSegments: 10 });
+  const body = new THREE.Mesh(bodyGeo, backMat);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  // textured face
+  const faceGeo = new THREE.ShapeGeometry(shape, 10);
+  remapUVsToBounds(faceGeo);
+  const face = new THREE.Mesh(faceGeo, faceMaterial(canvas));
+  face.scale.set(0.985, 0.985, 1);
+  face.position.z = SIGN_T + 0.002;
+  face.receiveShadow = true;
+  g.add(face);
+  faceMeshes.push(face);
+
+  // metal frame tube traced along the outline
+  const outline = shape.getPoints(48).map((p) => new THREE.Vector3(p.x, p.y, SIGN_T / 2));
+  const curve = new THREE.CatmullRomCurve3(outline, true, 'catmullrom', 0.0);
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 140, 0.03, 12, true), frameMat);
+  tube.castShadow = true;
+  tube.receiveShadow = true;
+  g.add(tube);
+
+  g.userData.halfWidth = halfW;
+  return g;
+}
+function buildTriangleSign(size, canvas) {
+  const R = size * 0.62;
+  const pts = [90, 210, 330].map((deg) => {
+    const a = (deg * Math.PI) / 180;
+    return new THREE.Vector2(Math.cos(a) * R, Math.sin(a) * R);
+  });
+  return buildShapeSign(roundedPolygonShape(pts, size * 0.09), size * 0.5, canvas);
+}
+function buildDiamondSign(size, canvas) {
+  const R = size * 0.72;
+  const pts = [90, 180, 270, 0].map((deg) => {
+    const a = (deg * Math.PI) / 180;
+    return new THREE.Vector2(Math.cos(a) * R, Math.sin(a) * R);
+  });
+  return buildShapeSign(roundedPolygonShape(pts, size * 0.12), R, canvas);
+}
+
+/* --------------------------- pole hardware bits --------------------------- */
+function addClampRing(y, extraBolt = true) {
+  const ring = new THREE.Mesh(
+    new THREE.CylinderGeometry(POLE_R + 0.022, POLE_R + 0.022, 0.085, 32),
+    clampMat
+  );
+  ring.position.y = y;
+  ring.castShadow = true;
+  ring.receiveShadow = true;
+  scene.add(ring);
+  if (extraBolt) {
+    const bolt = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.045), clampMat);
+    const a = rand() * Math.PI * 2;
+    bolt.position.set(Math.cos(a) * (POLE_R + 0.035), y, Math.sin(a) * (POLE_R + 0.035));
+    bolt.castShadow = true;
+    scene.add(bolt);
+  }
+  return ring;
+}
+
+/* ------------------------------- mounting --------------------------------- */
+const signs = []; // { pivot, group, baseRotZ, wobble, wobbleVel }
+
+function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY = 0, post = null }) {
+  // pivot sits on the pole axis; sign extends along local +z
+  const pivot = new THREE.Group();
+  pivot.position.y = height;
+  pivot.rotation.y = (angleDeg * Math.PI) / 180;
+  scene.add(pivot);
+
+  const holder = new THREE.Group();
+  holder.position.z = POLE_R + dist;
+  holder.rotation.set(tiltX, twistY, tiltZ);
+  pivot.add(holder);
+  holder.add(group);
+
+  // clamp ring on the pole at this height
+  addClampRing(height);
+
+  // black support arm from the pole to the back of the sign
+  const armLen = dist + POLE_R * 0.7;
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, armLen, 16), armMat);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.set(0, height * 0 /* local */, 0); // set below in pivot space
+  arm.position.z = POLE_R * 0.3 + armLen / 2;
+  arm.castShadow = true;
+  arm.receiveShadow = true;
+  pivot.add(arm);
+
+  // small black mounting plate on the sign back
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.02), armMat);
+  plate.position.z = -0.01;
+  group.add(plate);
+
+  signs.push({ pivot, holder, group, post, height, angleDeg, wobble: 0, wobbleVel: 0, phase: rand() * Math.PI * 2 });
+  return pivot;
+}
+
+/* ------------------------------- writings ---------------------------------
+   Every sign opens one of these. Only real writings get full text —
+   everything else is a coming-soon placeholder until it's written. */
+const soon = (icon, mount) => ({
+  icon,
+  title: 'Coming soon',
+  date: '—',
+  mount,
+  tags: [['coming soon', 'gray']],
+  blocks: [
+    { t: 'callout', e: '🚧', x: `Nothing is mounted here yet. A writing is on its way — check back soon.` },
+  ],
+});
+
+const WRITINGS = {
+  elitism: {
+    icon: '🎨', title: 'On design elitism, taste, and unlearning',
+    date: 'July 1, 2026', mount: 'the UNLEARNING DESIGN panel', tags: [['design', 'peri'], ['reflection', 'lilac'], ['school', 'gray']],
+    blocks: [
+      { t: 'callout', e: '💭', x: `Sparked by the Design Theory video "Why Are Designers Elitist?" — and a set of readings on humanitarian design.` },
+      { t: 'p', x: `I remember watching a video from the Design Theory channel called "Why Are Designers Elitist?", and its conclusion has really stuck with me, especially in light of these readings. The video suggests that elitism in design often comes from the culture and institutions that uphold taste and refinement as markers of good design. It concludes that designers become elitist not because design demands it, but because the institutions and culture surrounding design teach them to value exclusivity, complexity, and insider language over accessibility and humility. The more a designer learns about grids, typography, Bauhaus minimalism, or brutalist interfaces, the more they're conditioned to value a very specific kind of visual language, one that's often clean, polished, inaccessible, and rooted in Western modernism. The result is unfortunately an often unspoken belief that anything outside of that language is "lesser."` },
+      { t: 'p', x: `This elitism doesn't just shape how designers judge each other's work but also who gets to participate in design at all. When "good design" becomes synonymous with sleekness, modularity, or even scarcity, we begin to ignore design that is messy, handmade, culturally specific, or simply rooted in different priorities. And in humanitarian design, this elitism can have serious consequences. Take, for example, the Fairphone or Framework laptop, both built with repairability, sustainability, and ethics in mind. By all accounts, they should be aspirational products. Yet, they're not widely adopted; not because they're not good, but because they don't look or feel like premium tech. They don't have the polished veneer of an Apple product. This reveals something unsettling: even when we know a product is more ethical, many people (designers included) still prioritize aesthetic elitism over systemic responsibility. So the question is: Are we designing for users—or for other designers? For awards? For clout? If a product doesn't fit the glossy, minimalist mold, does it stand a chance? Do we dismiss vernacular or community-built solutions simply because they don't look like they belong in esteemed design magazines?  (I really do love rhetorical questions...)` },
+      { t: 'p', x: `The video's takeaway, that design elitism is learned, and rooted in the culture of the design community, felt like a call to unlearn. To question the values we've internalized about what "good" design looks like. And that ties directly back into the readings: from failed humanitarian projects that looked great on paper but ignored reality, to solutions that succeeded precisely because they weren't trying to win design awards, they were trying to work.` },
+      { t: 'quote', x: `Maybe part of rethinking humanitarian design means rethinking design culture itself. Maybe inclusion and ethics start not just in our process, but in our taste…` },
+    ],
+  },
+  pole: soon('🪧', 'the GALLERY blade'),
+  tuesday: soon('☕', 'the 30 disc'),
+  drift: soon('🌊', 'the ONE WAY sign'),
+  elevators: soon('🛗', 'the hazard square'),
+  peonies: soon('🌸', 'the no-entry disc'),
+  molt: soon('🐍', 'the EXIT 12 panel'),
+  tender: soon('🌱', 'the 7% triangle'),
+  middle: soon('🛣', 'the KM 42 marker'),
+  doorhandles: soon('🚪', 'the arrow disc'),
+  liquidmetal: soon('🏗', 'the P square'),
+  manifesto: soon('🚧', 'the warning triangle'),
+};
+
+/* ------------------------------ composition ------------------------------- */
+// Heights walk up the pole with jitter; angles use golden-angle steps so the
+// arrangement reads balanced but never perfectly regular.
+const GOLDEN = 137.508;
+let angleCursor = rand() * 360;
+function nextAngle() {
+  angleCursor += GOLDEN + jitter(16);
+  return angleCursor % 360;
+}
+
+const composition = [
+  { build: () => buildTriangleSign(0.95, artWarning()),                     h: 6.55, post: WRITINGS.manifesto },
+  { build: () => buildRectSign(1.55, 0.52, artDirectionBlue('GALLERY', 1)), h: 5.95, post: WRITINGS.pole },
+  { build: () => buildCircleSign(0.42, artSpeed30()),                       h: 5.35, post: WRITINGS.tuesday },
+  { build: () => buildRectSign(1.45, 0.5, artMuseumBlack()),                h: 4.85, post: WRITINGS.elitism },
+  { build: () => buildRectSign(0.5, 1.35, artOneWay()),                     h: 4.28, post: WRITINGS.drift },
+  { build: () => buildRectSign(0.72, 0.72, artHazardStripes()),             h: 3.72, post: WRITINGS.elevators },
+  { build: () => buildCircleSign(0.4, artNoEntry()),                        h: 3.3,  post: WRITINGS.peonies },
+  { build: () => buildRectSign(1.5, 0.5, artExitGreen()),                   h: 2.78, post: WRITINGS.molt },
+  { build: () => buildTriangleSign(0.9, artYield()),                        h: 2.25, post: WRITINGS.tender },
+  { build: () => buildRectSign(0.48, 1.3, artKilometer()),                  h: 1.75, post: WRITINGS.middle },
+  { build: () => buildCircleSign(0.38, artMandatoryUp()),                   h: 1.15, post: WRITINGS.doorhandles },
+  { build: () => buildRectSign(0.68, 0.68, artParking()),                   h: 0.72, post: WRITINGS.liquidmetal },
+];
+
+for (const item of composition) {
+  const group = item.build();
+  mountSign(group, {
+    height: item.h + jitter(0.16),
+    angleDeg: nextAngle(),
+    dist: 0.3 + rand() * 0.42,
+    tiltZ: jitter(0.045),
+    tiltX: jitter(0.03),
+    twistY: jitter(0.1),
+    post: item.post,
+  });
+}
+
+// A few extra bare clamp rings so the pole reads like real street furniture.
+addClampRing(0.45, false);
+addClampRing(2.52);
+addClampRing(4.6, false);
+addClampRing(7.05);
+
+/* ---------------------------- notion page logic ---------------------------- */
+const pageEl = document.getElementById('page');
+let pageOpen = false;
+
+function renderBlocks(blocks) {
+  const holder = document.getElementById('pg-content');
+  holder.innerHTML = '';
+  for (const b of blocks) {
+    let el;
+    if (b.t === 'quote') {
+      el = document.createElement('div');
+      el.className = 'quote';
+      el.textContent = b.x;
+    } else if (b.t === 'callout') {
+      el = document.createElement('div');
+      el.className = 'callout';
+      const e = document.createElement('span');
+      e.className = 'ce';
+      e.textContent = b.e || '💡';
+      const tx = document.createElement('span');
+      tx.textContent = b.x;
+      el.append(e, tx);
+    } else if (b.t === 'h2') {
+      el = document.createElement('h2');
+      el.textContent = b.x;
+    } else if (b.t === 'divider') {
+      el = document.createElement('div');
+      el.className = 'divider';
+    } else {
+      el = document.createElement('p');
+      el.textContent = b.x;
+    }
+    holder.appendChild(el);
+  }
+}
+function openPage(post) {
+  document.getElementById('pg-icon').textContent = post.icon;
+  document.getElementById('pg-title').textContent = post.title;
+  const meta = document.getElementById('pg-meta');
+  meta.innerHTML = '';
+  const date = document.createElement('span');
+  date.textContent = post.date;
+  meta.appendChild(date);
+  for (const [name, color] of post.tags) {
+    const pill = document.createElement('span');
+    pill.className = 'pill ' + color;
+    pill.textContent = name;
+    meta.appendChild(pill);
+  }
+  renderBlocks(post.blocks);
+  document.querySelector('#page .m-body').scrollTop = 0;
+  pageEl.classList.add('open');
+  pageOpen = true;
+  controls.autoRotate = false;
+  document.body.style.cursor = 'default';
+}
+function closePage() {
+  pageEl.classList.remove('open');
+  pageOpen = false;
+  controls.autoRotate = true;
+}
+document.getElementById('pg-close').addEventListener('click', closePage);
+pageEl.addEventListener('click', closePage);
+document.getElementById('plaque').addEventListener('click', (e) => e.stopPropagation());
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePage(); });
+
+/* ------------------------------ interaction ------------------------------- */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(-10, -10);
+let hovered = null;
+let pointerDown = { x: 0, y: 0, moved: false };
+
+function findSignFor(object) {
+  return signs.find((s) => {
+    let hit = false;
+    s.group.traverse((o) => { if (o === object) hit = true; });
+    return hit;
+  });
+}
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  if (Math.abs(e.clientX - pointerDown.x) + Math.abs(e.clientY - pointerDown.y) > 6) {
+    pointerDown.moved = true;
+  }
+});
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pointerDown = { x: e.clientX, y: e.clientY, moved: false };
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (pointerDown.moved || pageOpen) return;
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(faceMeshes, false);
+  const s = hits.length ? findSignFor(hits[0].object) : null;
+  if (!s) return;
+  s.wobbleVel += 2.4 + rand(); // a little nudge on the way in
+  if (s.post) openPage(s.post);
+});
+
+/* -------------------------------- animate --------------------------------- */
+const clock = new THREE.Clock();
+let introT = 0;
+
+// intro: signs pop in staggered
+for (const s of signs) s.group.scale.setScalar(0.0001);
+
+function easeOutBack(t) {
+  const c1 = 1.30158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  introT += dt;
+
+  // staggered intro
+  signs.forEach((s, i) => {
+    const local = THREE.MathUtils.clamp((introT - 0.35 - i * 0.09) / 0.55, 0, 1);
+    const k = local >= 1 ? 1 : Math.max(0.0001, easeOutBack(local));
+    s.group.scale.setScalar(k);
+  });
+
+  // wobble springs + faint idle sway
+  for (const s of signs) {
+    const stiffness = 26, damping = 4.2;
+    s.wobbleVel += -s.wobble * stiffness * dt - s.wobbleVel * damping * dt;
+    s.wobble += s.wobbleVel * dt;
+    const idle = Math.sin(t * 0.7 + s.phase) * 0.006;
+    s.holder.rotation.z = (s.holder.userData.baseZ ??= s.holder.rotation.z) + idle;
+    s.group.rotation.x = s.wobble * 0.12;
+  }
+
+  // hover
+  if (!pageOpen) {
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(faceMeshes, false);
+    const found = hits.length ? findSignFor(hits[0].object) : null;
+    if (found !== hovered) {
+      hovered = found;
+      document.body.style.cursor = hovered ? 'pointer' : 'default';
+    }
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+document.getElementById('loader').classList.add('done');
+
+/* -------------------------------- resize ---------------------------------- */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wayfinding</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #2b4ae0; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  #loader {
+    position: fixed; inset: 0; z-index: 40; background: #2b4ae0;
+    transition: opacity 0.9s ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+
+  /* ------------- the reading veil ------------- */
+  #veil {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(244, 237, 218, 0.97);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease;
+    cursor: pointer;
+    overflow-y: auto;
+  }
+  #veil.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    max-width: 580px; width: 100%;
+    padding: 60px 40px;
+    color: #16247a;
+    transform: translateY(14px);
+    transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+    cursor: default;
+  }
+  #veil.open .sheet { transform: translateY(0); }
+  .meta {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: #8a83a8; margin-bottom: 26px;
+  }
+  .meta .dot { width: 10px; height: 10px; border-radius: 50%; background: #eb4a20; flex: none; }
+  .sheet h2 {
+    font-family: Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+    font-weight: 400; font-size: 38px;
+    letter-spacing: -0.01em; margin-bottom: 26px; line-height: 1.15;
+  }
+  .rule { width: 56px; height: 3px; background: #eb4a20; margin-bottom: 30px; }
+  .sheet .body {
+    font-family: Georgia, serif;
+    font-size: 16.5px; line-height: 2.02; color: #24204a;
+    white-space: pre-line;
+  }
+  .sheet .close-hint {
+    margin-top: 46px;
+    font-size: 9.5px; letter-spacing: 0.3em; color: #b9b2cc;
+    text-transform: uppercase;
+  }
+  /* index mode */
+  #indexList { display: none; }
+  #indexList.on { display: block; }
+  #article.off { display: none; }
+  #indexList h2 {
+    font-family: Didot, "Bodoni MT", Georgia, serif;
+    font-weight: 400; font-size: 36px; margin-bottom: 34px;
+  }
+  #indexList ul { list-style: none; }
+  #indexList li {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 13px 6px; border-top: 1px solid #e0d8c2;
+    cursor: pointer; transition: background 0.2s ease, padding-left 0.2s ease;
+  }
+  #indexList li:hover { background: #ede4cc; padding-left: 14px; }
+  #indexList li .idot { width: 9px; height: 9px; border-radius: 50%; flex: none; align-self: center; }
+  #indexList li .ititle { font-family: Georgia, serif; font-size: 16px; color: #16247a; flex: 1; }
+  #indexList li .itag { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #a89fc0; }
+  #indexList li .idate { font-size: 10.5px; color: #a89fc0; font-variant-numeric: tabular-nums; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="loader"></div>
+
+<div id="veil">
+  <div class="sheet" id="sheet">
+    <div id="article">
+      <div class="meta"><span class="dot" id="w-dot"></span><span id="w-tag"></span><span>·</span><span id="w-date"></span></div>
+      <h2 id="w-title"></h2>
+      <div class="rule"></div>
+      <div class="body" id="w-body"></div>
+      <div class="close-hint">tap outside the text to return</div>
+    </div>
+    <div id="indexList">
+      <h2>The archive</h2>
+      <ul id="idx-ul"></ul>
+      <div class="close-hint" style="margin-top:34px;">tap outside the list to return</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ═══════════════ THE WRITINGS — edit this list to grow the corner ═══════════ */
+const POSTS = [
+  {
+    id: 'garden', tag: 'life', date: '2026 · 06 · 12', title: 'On keeping a pole instead of a garden',
+    body: `A garden asks for land. A pole only asks for a place to stand.
+
+I like that. I move a lot — cities, jobs, versions of myself — and the pole comes along, holding everything I've written on the way. Some of it blooms. Some of it is bolted on. All of it points somewhere I've been or somewhere I'm going. This is not a portfolio. It is a lamppost I keep talking to.`,
+  },
+  {
+    id: 'drift', tag: 'life', date: '2026 · 03 · 02', title: 'The year I learned to drift',
+    body: `Some years the current did the steering. I called it failure then; I call it water now.
+
+Drifting taught me what no map could — that lostness is a place with its own weather, its own small mercies, and that the shore I washed up on was kinder than the one I had charted.`,
+  },
+  {
+    id: 'elevators', tag: 'absurd', date: '2026 · 05 · 27', title: 'Absurd thought №14: elevators are vertical trains',
+    body: `One car. One track. Scheduled stops. Strangers avoiding eye contact while the landscape (drywall) rushes past.
+
+We accepted a train that goes UP and nobody threw a parade. Every morning I commute eleven floors and act like it's nothing. It is not nothing. I am in a tiny vertical train station wearing my nice jacket.
+
+Related: escalators are rivers for people who gave up.`,
+  },
+  {
+    id: 'tender', tag: 'life', date: '2025 · 11 · 18', title: 'Tenderness as engineering',
+    body: `To be soft in a hard season is not weakness; it is engineering.
+
+The bud survives the frost not by becoming stone but by holding its sugar close. I am done apologizing for tenderness. It is the most load-bearing thing I own.`,
+  },
+  {
+    id: 'tuesday', tag: 'life', date: '2026 · 01 · 20', title: 'Notes from an unremarkable Tuesday',
+    body: `No one warns you about the middle — after the beginning's adrenaline, before the ending's clarity. Just Tuesdays. Just watering things I cannot yet see.
+
+Today I fixed a sentence, walked the long way for milk, and said "you too" when the barista said "enjoy your drink." The middle is not the wait between meanings. It is the meaning, wearing ordinary clothes.`,
+  },
+  {
+    id: 'peonies', tag: 'misc', date: '2025 · 06 · 30', title: `Peonies don't apologize`,
+    body: `A peony opens too much, too fast, in colors that clash with everything, and drops its entire self on the table in four days.
+
+It never once says sorry for the mess. I bought three. I am taking notes.`,
+  },
+  {
+    id: 'loadbearing', tag: 'design', date: '2026 · 04 · 15', title: 'Design is a load-bearing wall',
+    body: `People renovate products the way bad landlords renovate apartments — rip out what looks old, keep whatever the floor plan happens to imply. Then the ceiling sags and everyone blames the paint.
+
+Design is not the paint. It is the wall you find out was structural. The interview flow, the pricing page, the empty state at 2 a.m. — knock those down carelessly and the whole thing leans. Good designers walk in with a stud finder, not a mood board.`,
+  },
+  {
+    id: 'liquidmetal', tag: 'company', date: '2026 · 02 · 09', title: 'Liquid metal: notes on building a thing',
+    body: `A company at the beginning is liquid metal — blindingly shiny, no fixed shape, and it burns you if you hold it wrong.
+
+Everyone asks what mold you'll pour it into. The honest answer is that the mold is made of the first ten people, the first hundred no's, and whatever you refuse to stop believing on the worst day. It cools into a shape you only recognize afterward. Keep it molten a little longer than is comfortable. Most things harden too early, not too late.`,
+  },
+  {
+    id: 'doorhandles', tag: 'design', date: '2025 · 09 · 21', title: 'Interfaces should feel like door handles',
+    body: `Nobody reads a manual for a door handle. Your hand arrives already knowing.
+
+That's the whole ambition, honestly — software that meets the hand halfway. Every time I add a tooltip I try to hear a tiny door handle laughing at me.`,
+  },
+  {
+    id: 'honesty', tag: 'work', date: '2026 · 06 · 01', title: 'Chrome as honesty',
+    body: `Chrome hides nothing. It shows you the room, warped but faithful — including your own face, too close, checking on it.
+
+I want to make work like that: reflective, a little distorted, impossible to look at without also seeing yourself. Matte is safer. Matte absorbs. But I didn't start doing any of this to be absorbent.`,
+  },
+  {
+    id: 'about', tag: 'about', date: 'permanent fixture', title: 'About this corner',
+    body: `I'm Jean. I navigate through life the way anyone does — squinting at signs, taking wrong exits, doubling back.
+
+This corner is where I keep the record: essays, absurd thoughts, notes on design and on building things. Every sign, signal, and even the trash bag holds a piece of writing.
+
+It grows when I write. Come back when it's messier.`,
+  },
+  {
+    id: 'how', tag: 'wayfinding', date: 'permanent fixture', title: 'How this place works',
+    body: `No destination, only direction.
+
+Everything on this street corner is a writing. Click the signs, the signals, the boxes, the bag. The mailbox holds the full index of everything posted so far.
+
+Orbit a little. The corner does not end; it just hasn't grown further yet.`,
+  },
+  {
+    id: 'warning', tag: 'manifesto', date: 'permanent fixture', title: 'Crossed-out thoughts stay posted',
+    body: `Some thoughts get a line through them and stay on the pole anyway.
+
+That's policy here. The crossed-out ones are load-bearing too — they show where I changed my mind, which is the only proof I was thinking at all. Nothing gets taken down. It gets annotated.`,
+  },
+];
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260707);
+const jitter = (amt) => (rand() * 2 - 1) * amt;
+
+/* -------------------------------- palette (SuperSocial) -------------------- */
+const PAL = {
+  blue: '#2b4ae0',
+  blueFloor: '#2440c4',
+  navy: '#16247a',
+  verm: '#eb4a20',
+  vermDeep: '#c93a14',
+  pink: '#f4b3c7',
+  pinkDeep: '#e987a9',
+  cream: '#f4edda',
+  creamDim: '#e4dbc2',
+};
+
+/* ------------------------------- renderer -------------------------------- */
+const container = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAL.blue);
+scene.fog = new THREE.Fog(PAL.blue, 22, 48);
+
+const camera = new THREE.PerspectiveCamera(34, window.innerWidth / window.innerHeight, 0.1, 80);
+camera.position.set(0.6, 2.55, 10.8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.1, 2.62, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.enablePan = false;
+controls.minDistance = 6;
+controls.maxDistance = 15;
+controls.minPolarAngle = Math.PI * 0.36;
+controls.maxPolarAngle = Math.PI * 0.55;
+controls.minAzimuthAngle = -0.75;
+controls.maxAzimuthAngle = 0.75;
+
+/* --------------------------------- light ---------------------------------- */
+scene.add(new THREE.HemisphereLight(0xffffff, 0x4b5ed8, 1.15));
+const key = new THREE.DirectionalLight(0xfff4e0, 1.6);
+key.position.set(5, 9, 6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 30;
+key.shadow.camera.left = -6;
+key.shadow.camera.right = 6;
+key.shadow.camera.top = 8;
+key.shadow.camera.bottom = -4;
+key.shadow.bias = -0.0002;
+key.shadow.radius = 8;
+key.shadow.blurSamples = 16;
+scene.add(key);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(40, 64),
+  new THREE.MeshStandardMaterial({ color: PAL.blueFloor, roughness: 1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ------------------------------ shared helpers ---------------------------- */
+const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+const matCache = new Map();
+function flat(color) {
+  if (!matCache.has('f' + color)) matCache.set('f' + color, new THREE.MeshBasicMaterial({ color }));
+  return matCache.get('f' + color);
+}
+function lit(color, rough = 0.7, metal = 0) {
+  const k = 'l' + color + rough + metal;
+  if (!matCache.has(k)) matCache.set(k, new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal }));
+  return matCache.get(k);
+}
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return [c, c.getContext('2d')];
+}
+function toTexture(canvas) {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+function remapUVsToBounds(geometry) {
+  geometry.computeBoundingBox();
+  const bb = geometry.boundingBox;
+  const sx = bb.max.x - bb.min.x, sy = bb.max.y - bb.min.y;
+  const pos = geometry.attributes.position;
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, (pos.getX(i) - bb.min.x) / sx, (pos.getY(i) - bb.min.y) / sy);
+  }
+  uv.needsUpdate = true;
+}
+function roundedPolygonShape(points, radius) {
+  const shape = new THREE.Shape();
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const p = points[i];
+    const prev = points[(i + n - 1) % n];
+    const next = points[(i + 1) % n];
+    const dPrev = p.clone().sub(prev).normalize();
+    const dNext = next.clone().sub(p).normalize();
+    const pA = p.clone().sub(dPrev.clone().multiplyScalar(radius));
+    const pB = p.clone().add(dNext.clone().multiplyScalar(radius));
+    if (i === 0) shape.moveTo(pA.x, pA.y); else shape.lineTo(pA.x, pA.y);
+    shape.quadraticCurveTo(p.x, p.y, pB.x, pB.y);
+  }
+  shape.closePath();
+  return shape;
+}
+function roundedRectShape(w, h, r) {
+  return roundedPolygonShape([
+    new THREE.Vector2(-w / 2, -h / 2), new THREE.Vector2(w / 2, -h / 2),
+    new THREE.Vector2(w / 2, h / 2), new THREE.Vector2(-w / 2, h / 2),
+  ], r);
+}
+function regPolyShape(n, R, rotDeg = 0, corner = 0.05) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + (rotDeg * Math.PI) / 180;
+    pts.push(new THREE.Vector2(Math.cos(a) * R, Math.sin(a) * R));
+  }
+  return roundedPolygonShape(pts, corner);
+}
+// flat sign: extruded silhouette + canvas art on the face
+function flatSign(shape, canvas, depth = 0.06, sideColor = PAL.cream) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 26 }),
+    flat(sideColor)
+  );
+  body.castShadow = true;
+  g.add(body);
+  const faceGeo = new THREE.ShapeGeometry(shape, 26);
+  remapUVsToBounds(faceGeo);
+  const face = new THREE.Mesh(faceGeo, new THREE.MeshBasicMaterial({ map: toTexture(canvas) }));
+  face.position.z = depth + 0.002;
+  g.add(face);
+  return g;
+}
+
+/* ------------------------------ canvas artwork ---------------------------- */
+function artUTurnOctagon() {
+  const [c, ctx] = makeCanvas(512, 512);
+  ctx.fillStyle = PAL.pink; ctx.fillRect(0, 0, 512, 512);
+  // vermillion octagon border
+  ctx.strokeStyle = PAL.verm; ctx.lineWidth = 26;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    const x = 256 + Math.cos(a) * 212, y = 256 - Math.sin(a) * 212;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath(); ctx.stroke();
+  // blue U-turn arrow
+  ctx.strokeStyle = PAL.blue; ctx.lineWidth = 44; ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.arc(256, 250, 82, Math.PI, 0, false);
+  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(338, 250); ctx.lineTo(338, 330); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(174, 250); ctx.lineTo(174, 300); ctx.stroke();
+  ctx.fillStyle = PAL.blue;
+  ctx.beginPath();
+  ctx.moveTo(174 - 58, 300); ctx.lineTo(174 + 58, 300); ctx.lineTo(174, 396);
+  ctx.closePath(); ctx.fill();
+  return c;
+}
+function artWavy(bg, line, border) {
+  const [c, ctx] = makeCanvas(1024, 460);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, 1024, 460);
+  ctx.strokeStyle = border; ctx.lineWidth = 22;
+  ctx.strokeRect(30, 30, 964, 400);
+  ctx.strokeStyle = line; ctx.lineWidth = 30; ctx.lineCap = 'round';
+  for (let row = 0; row < 3; row++) {
+    const y = 130 + row * 100;
+    ctx.beginPath();
+    for (let x = 110; x <= 914; x += 6) {
+      const yy = y + Math.sin((x - 110) / 44 + row * 1.4) * 26;
+      x === 110 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+  }
+  return c;
+}
+function artBigArrow() {
+  const [c, ctx] = makeCanvas(1024, 460);
+  ctx.fillStyle = PAL.navy; ctx.fillRect(0, 0, 1024, 460);
+  ctx.strokeStyle = PAL.cream; ctx.lineWidth = 22;
+  ctx.strokeRect(30, 30, 964, 400);
+  ctx.fillStyle = PAL.cream;
+  const cy = 230, T = 84, len = 700, headL = 150, headW = 165;
+  const x0 = 130;
+  ctx.beginPath();
+  ctx.moveTo(x0, cy - T / 2);
+  ctx.lineTo(x0 + len - headL, cy - T / 2);
+  ctx.lineTo(x0 + len - headL, cy - headW);
+  ctx.lineTo(x0 + len + headL * 0.5, cy);
+  ctx.lineTo(x0 + len - headL, cy + headW);
+  ctx.lineTo(x0 + len - headL, cy + T / 2);
+  ctx.lineTo(x0, cy + T / 2);
+  ctx.closePath(); ctx.fill();
+  return c;
+}
+function artNoScribble() {
+  const [c, ctx] = makeCanvas(1024, 560);
+  ctx.fillStyle = PAL.cream; ctx.fillRect(0, 0, 1024, 560);
+  ctx.strokeStyle = PAL.blue; ctx.lineWidth = 24;
+  ctx.strokeRect(32, 32, 960, 496);
+  // vermillion scribble
+  ctx.strokeStyle = PAL.verm; ctx.lineWidth = 34; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(150, 330);
+  ctx.bezierCurveTo(260, 120, 360, 440, 480, 240);
+  ctx.bezierCurveTo(580, 90, 660, 420, 780, 260);
+  ctx.quadraticCurveTo(840, 190, 890, 230);
+  ctx.stroke();
+  // blue prohibition slash
+  ctx.strokeStyle = PAL.blue; ctx.lineWidth = 44;
+  ctx.beginPath(); ctx.moveTo(160, 470); ctx.lineTo(870, 100); ctx.stroke();
+  return c;
+}
+function artWalk() {
+  const [c, ctx] = makeCanvas(512, 512);
+  ctx.fillStyle = PAL.navy; ctx.fillRect(0, 0, 512, 512);
+  ctx.strokeStyle = PAL.pink; ctx.lineWidth = 24;
+  ctx.strokeRect(28, 28, 456, 456);
+  // cream walking figure
+  ctx.fillStyle = PAL.cream;
+  ctx.beginPath(); ctx.arc(268, 132, 42, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = PAL.cream; ctx.lineWidth = 34; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(262, 180); ctx.lineTo(248, 300); ctx.stroke();           // torso
+  ctx.beginPath(); ctx.moveTo(258, 214); ctx.lineTo(338, 262); ctx.stroke();           // front arm
+  ctx.beginPath(); ctx.moveTo(258, 214); ctx.lineTo(174, 258); ctx.stroke();           // back arm
+  ctx.beginPath(); ctx.moveTo(248, 300); ctx.lineTo(342, 372); ctx.lineTo(352, 432); ctx.stroke(); // front leg
+  ctx.beginPath(); ctx.moveTo(248, 300); ctx.lineTo(178, 380); ctx.lineTo(152, 430); ctx.stroke(); // back leg
+  return c;
+}
+
+/* ══════════════════════ the street corner, piece by piece ══════════════════ */
+const artefacts = [];
+const hitMeshes = [];
+const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+const byId = Object.fromEntries(POSTS.map((p) => [p.id, p]));
+
+function register(objGroup, post, hitR, hitOffset = new THREE.Vector3()) {
+  const art = { post, group: objGroup, base: objGroup.position.clone(), phase: rand() * Math.PI * 2, hoverK: 0 };
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(hitR, 8, 8), hitMat);
+  hit.position.copy(hitOffset);
+  objGroup.add(hit);
+  hit.userData.artefact = art;
+  hitMeshes.push(hit);
+  artefacts.push(art);
+  return art;
+}
+
+/* ---------- the curved lamppost ---------- */
+const POLE_R = 0.11;
+const poleMatL = lit(PAL.cream, 0.55);
+{
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R * 1.15, 4.5, 24), poleMatL);
+  shaft.position.y = 2.25;
+  shaft.castShadow = true;
+  scene.add(shaft);
+  // quarter-turn curve at the top, bending toward +x
+  const bendR = 0.85;
+  const bend = new THREE.Mesh(new THREE.TorusGeometry(bendR, POLE_R, 18, 32, Math.PI / 2), poleMatL);
+  bend.position.set(bendR, 4.5, 0);
+  bend.rotation.z = Math.PI / 2; // arc spans from straight-up to horizontal +x
+  bend.castShadow = true;
+  scene.add(bend);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, 0.9, 24), poleMatL);
+  arm.rotation.z = Math.PI / 2;
+  arm.position.set(bendR + 0.45, 4.5 + bendR, 0);
+  arm.castShadow = true;
+  scene.add(arm);
+  // lamp head — elongated cobra-head shade with a vermillion lens beneath
+  const head = new THREE.Group();
+  const shade = new THREE.Mesh(new THREE.SphereGeometry(0.3, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), lit(PAL.cream, 0.5));
+  shade.scale.set(1.7, 0.6, 0.9);
+  const lens = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 12), flat(PAL.verm));
+  lens.scale.set(1.6, 0.35, 0.75);
+  lens.position.y = -0.02;
+  head.add(shade, lens);
+  head.position.set(bendR + 0.85, 4.5 + bendR - 0.04, 0);
+  head.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  scene.add(head);
+  // base
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R * 1.7, POLE_R * 2.2, 0.34, 24), lit(PAL.navy, 0.6));
+  foot.position.y = 0.17;
+  foot.castShadow = true;
+  foot.receiveShadow = true;
+  scene.add(foot);
+}
+// navy clamp collars where things attach
+function clamp(y) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R + 0.02, POLE_R + 0.02, 0.08, 20), lit(PAL.navy, 0.55));
+  m.position.y = y;
+  m.castShadow = true;
+  scene.add(m);
+}
+[4.32, 4.05, 3.7, 3.2, 2.75, 2.35].forEach(clamp);
+
+/* ---------- traffic light (upper left) ---------- */
+{
+  const g = new THREE.Group();
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.5, 12), lit(PAL.navy, 0.55));
+  arm.rotation.z = Math.PI / 2;
+  arm.position.set(0.25, 0, -0.02);
+  g.add(arm);
+  const backShape = roundedRectShape(0.46, 1.06, 0.12);
+  const back = new THREE.Mesh(new THREE.ExtrudeGeometry(backShape, { depth: 0.05, bevelEnabled: false, curveSegments: 20 }), flat(PAL.pink));
+  back.position.z = -0.03;
+  g.add(back);
+  const boxShape = roundedRectShape(0.38, 0.98, 0.1);
+  const box = new THREE.Mesh(new THREE.ExtrudeGeometry(boxShape, { depth: 0.14, bevelEnabled: false, curveSegments: 20 }), lit(PAL.navy, 0.5));
+  g.add(box);
+  const lightCols = [PAL.verm, PAL.pink, PAL.cream];
+  lightCols.forEach((col, i) => {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.06, 24), flat(col));
+    l.rotation.x = Math.PI / 2;
+    l.position.set(0, 0.3 - i * 0.3, 0.16);
+    g.add(l);
+  });
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.position.set(-0.62, 4.32, 0.05);
+  g.rotation.y = 0.15;
+  scene.add(g);
+  register(g, byId.how, 0.62);
+}
+
+/* ---------- octagon: U-turn (upper right) ---------- */
+{
+  const g = flatSign(regPolyShape(8, 0.56, 22.5, 0.05), artUTurnOctagon(), 0.06, PAL.pink);
+  g.position.set(0.78, 4.35, 0.16);
+  g.rotation.z = -0.1;
+  scene.add(g);
+  register(g, byId.drift, 0.62);
+}
+
+/* ---------- wavy scribble (right, vermillion) ---------- */
+{
+  const g = flatSign(roundedRectShape(1.5, 0.68, 0.09), artWavy(PAL.verm, PAL.cream, PAL.cream), 0.06, PAL.verm);
+  g.position.set(0.95, 3.85, 0.1);
+  g.rotation.z = -0.07;
+  g.rotation.y = -0.12;
+  scene.add(g);
+  register(g, byId.elevators, 0.75);
+}
+
+/* ---------- the big arrow sign (center, dominant) ---------- */
+{
+  const g = flatSign(roundedRectShape(2.1, 0.95, 0.1), artBigArrow(), 0.07, PAL.navy);
+  g.position.set(0.2, 3.18, 0.24);
+  g.rotation.z = 0.05;
+  scene.add(g);
+  register(g, byId.about, 1.0);
+}
+
+/* ---------- wavy sign (left, blue on cream) ---------- */
+{
+  const g = flatSign(roundedRectShape(1.15, 0.55, 0.08), artWavy(PAL.cream, PAL.blue, PAL.pinkDeep), 0.06, PAL.cream);
+  g.position.set(-0.85, 3.62, 0.05);
+  g.rotation.z = 0.09;
+  g.rotation.y = 0.2;
+  scene.add(g);
+  register(g, byId.tender, 0.62);
+}
+
+/* ---------- crossed-out scribble (right-low) ---------- */
+{
+  const g = flatSign(roundedRectShape(1.15, 0.63, 0.09), artNoScribble(), 0.06, PAL.cream);
+  g.position.set(0.82, 2.62, 0.14);
+  g.rotation.z = -0.06;
+  g.rotation.y = -0.08;
+  scene.add(g);
+  register(g, byId.warning, 0.62);
+}
+
+/* ---------- walk signal (left-low) ---------- */
+{
+  const g = flatSign(roundedRectShape(0.78, 0.78, 0.14), artWalk(), 0.09, PAL.navy);
+  g.position.set(-0.58, 2.28, 0.1);
+  g.rotation.z = 0.04;
+  g.rotation.y = 0.12;
+  scene.add(g);
+  register(g, byId.garden, 0.52);
+}
+
+/* ---------- glossy trash bag (ground, left) ---------- */
+{
+  const g = new THREE.Group();
+  const bagMat = new THREE.MeshStandardMaterial({ color: PAL.navy, roughness: 0.24, metalness: 0.12 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.78, 32, 24), bagMat);
+  body.scale.set(1, 0.85, 0.92);
+  body.position.y = 0.64;
+  g.add(body);
+  const lump = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 18), bagMat);
+  lump.position.set(0.3, 1.05, 0.12);
+  g.add(lump);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.26, 0.3, 16), bagMat);
+  neck.position.set(-0.08, 1.3, 0);
+  neck.rotation.z = 0.18;
+  g.add(neck);
+  // tied "ears"
+  for (const [dx, rz] of [[-0.1, 0.55], [0.13, -0.4]]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 12), bagMat);
+    ear.position.set(-0.08 + dx, 1.5, 0);
+    ear.rotation.z = rz;
+    g.add(ear);
+  }
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.position.set(-1.05, 0, 0.55);
+  scene.add(g);
+  register(g, byId.peonies, 0.95, new THREE.Vector3(0, 0.8, 0));
+}
+
+/* ---------- street boxes (ground, right) ---------- */
+function streetBox({ w, h, d, body, top, x, z, ry = 0, stickers = false, slot = true }) {
+  const g = new THREE.Group();
+  const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lit(body, 0.55));
+  bodyMesh.position.y = h / 2;
+  g.add(bodyMesh);
+  // half-cylinder ridge along the depth, bulging upward
+  const dome = new THREE.Mesh(
+    new THREE.CylinderGeometry(w / 2, w / 2, d, 24, 1, false, Math.PI / 2, Math.PI),
+    lit(top, 0.55)
+  );
+  dome.rotation.x = Math.PI / 2;
+  dome.position.y = h;
+  g.add(dome);
+  if (slot) {
+    const slotMesh = new THREE.Mesh(new THREE.BoxGeometry(w * 0.62, 0.07, 0.03), lit(PAL.navy, 0.5));
+    slotMesh.position.set(0, h * 0.78, d / 2 + 0.012);
+    g.add(slotMesh);
+  }
+  if (stickers) {
+    const s1 = new THREE.Mesh(new THREE.CircleGeometry(0.09, 20), flat(PAL.cream));
+    s1.position.set(-0.12, h * 0.5, d / 2 + 0.012);
+    g.add(s1);
+    const s2 = new THREE.Mesh(new THREE.CircleGeometry(0.06, 20), flat(PAL.verm));
+    s2.position.set(0.16, h * 0.38, d / 2 + 0.012);
+    g.add(s2);
+    const s3 = new THREE.Mesh(new THREE.CircleGeometry(0.05, 20), flat(PAL.pinkDeep));
+    s3.position.set(0.05, h * 0.6, d / 2 + 0.012);
+    g.add(s3);
+  }
+  const foot = new THREE.Mesh(new THREE.BoxGeometry(w * 0.8, 0.08, d * 0.8), lit(PAL.navy, 0.55));
+  foot.position.y = 0.04;
+  g.add(foot);
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.position.set(x, 0, z);
+  g.rotation.y = ry;
+  scene.add(g);
+  return g;
+}
+// front box: the pink mailbox → opens the archive index
+{
+  const g = streetBox({ w: 0.72, h: 1.0, d: 0.55, body: PAL.pink, top: PAL.verm, x: 1.3, z: 0.6, ry: -0.22, stickers: true });
+  register(g, { id: '__index', tag: 'index' }, 0.75, new THREE.Vector3(0, 0.65, 0));
+}
+// back box: vermillion, taller
+{
+  const g = streetBox({ w: 0.78, h: 1.22, d: 0.6, body: PAL.verm, top: PAL.navy, x: 1.95, z: -0.15, ry: 0.12, stickers: false });
+  register(g, byId.liquidmetal, 0.8, new THREE.Vector3(0, 0.75, 0));
+}
+
+/* ------------------------------ reading veil ------------------------------- */
+const veil = document.getElementById('veil');
+const sheet = document.getElementById('sheet');
+const articleEl = document.getElementById('article');
+const indexEl = document.getElementById('indexList');
+const idxUl = document.getElementById('idx-ul');
+let veilOpen = false;
+
+const TAG_COLORS = {
+  life: PAL.pinkDeep, misc: PAL.pinkDeep, absurd: PAL.verm,
+  design: PAL.blue, company: PAL.blue, work: PAL.blue,
+  about: PAL.navy, wayfinding: PAL.verm, manifesto: PAL.verm,
+};
+
+function openWriting(post) {
+  articleEl.classList.remove('off');
+  indexEl.classList.remove('on');
+  document.getElementById('w-dot').style.background = TAG_COLORS[post.tag] || PAL.navy;
+  document.getElementById('w-tag').textContent = post.tag;
+  document.getElementById('w-date').textContent = post.date;
+  document.getElementById('w-title').textContent = post.title;
+  document.getElementById('w-body').textContent = post.body;
+  veil.classList.add('open');
+  veilOpen = true;
+}
+function openIndex() {
+  articleEl.classList.add('off');
+  indexEl.classList.add('on');
+  idxUl.innerHTML = '';
+  for (const post of POSTS) {
+    const li = document.createElement('li');
+    const dot = document.createElement('span');
+    dot.className = 'idot';
+    dot.style.background = TAG_COLORS[post.tag] || PAL.navy;
+    const title = document.createElement('span');
+    title.className = 'ititle';
+    title.textContent = post.title;
+    const tag = document.createElement('span');
+    tag.className = 'itag';
+    tag.textContent = post.tag;
+    const date = document.createElement('span');
+    date.className = 'idate';
+    date.textContent = post.date;
+    li.append(dot, title, tag, date);
+    li.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openWriting(post);
+    });
+    idxUl.appendChild(li);
+  }
+  veil.classList.add('open');
+  veilOpen = true;
+}
+function closeVeil() {
+  veil.classList.remove('open');
+  veilOpen = false;
+}
+veil.addEventListener('click', closeVeil);
+sheet.addEventListener('click', (e) => e.stopPropagation());
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeVeil(); });
+
+/* ------------------------------ interaction -------------------------------- */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(-10, -10);
+let hovered = null;
+let pointerDown = { x: 0, y: 0, moved: false };
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  if (Math.abs(e.clientX - pointerDown.x) + Math.abs(e.clientY - pointerDown.y) > 6) {
+    pointerDown.moved = true;
+  }
+});
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pointerDown = { x: e.clientX, y: e.clientY, moved: false };
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (pointerDown.moved || veilOpen) return;
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(hitMeshes, false);
+  if (!hits.length) return;
+  const art = hits[0].object.userData.artefact;
+  if (art.post.id === '__index') openIndex();
+  else openWriting(art.post);
+});
+
+/* -------------------------------- animate ---------------------------------- */
+const clock = new THREE.Clock();
+let introT = 0;
+for (const a of artefacts) a.group.scale.setScalar(0.0001);
+
+function easeOutBack(t) {
+  const c1 = 1.30158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+const introOrder = [...artefacts].sort((a, b) => a.base.y - b.base.y);
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  introT += dt;
+
+  introOrder.forEach((a, i) => {
+    const local = THREE.MathUtils.clamp((introT - 0.3 - i * 0.09) / 0.6, 0, 1);
+    const k = local >= 1 ? 1 : Math.max(0.0001, easeOutBack(local));
+    const target = a === hovered ? 1 : 0;
+    a.hoverK += (target - a.hoverK) * Math.min(1, dt * 9);
+    a.group.scale.setScalar(k * (1 + a.hoverK * 0.05));
+    // breathe
+    a.group.position.y = a.base.y + Math.sin(t * 0.8 + a.phase) * 0.012 + a.hoverK * 0.04;
+  });
+
+  if (!veilOpen) {
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(hitMeshes, false);
+    const found = hits.length ? hits[0].object.userData.artefact : null;
+    if (found !== hovered) {
+      hovered = found;
+      document.body.style.cursor = hovered ? 'pointer' : 'default';
+    }
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+document.getElementById('loader').classList.add('done');
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

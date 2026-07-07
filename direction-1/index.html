@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SIGNPOST 06 — blue hour</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #f6f6f1; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  .ui { position: fixed; z-index: 10; pointer-events: none; color: #1d35e6; user-select: none; }
+  .title { top: 34px; left: 40px; }
+  .title h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.34em; text-transform: uppercase; }
+  .title p { margin-top: 7px; font-size: 11px; letter-spacing: 0.12em; color: #7d8be8; text-transform: uppercase; }
+  .hint {
+    bottom: 32px; left: 40px;
+    font-size: 10.5px; letter-spacing: 0.14em; color: #7d8be8;
+    text-transform: uppercase; line-height: 1.9;
+  }
+  .numeral {
+    bottom: 14px; right: 36px;
+    font-family: Didot, "Bodoni MT", Georgia, serif;
+    font-size: 92px; font-weight: 400; color: #1d35e6;
+    letter-spacing: 0.02em;
+  }
+  .numeral span { font-size: 11px; font-family: "Helvetica Neue", Arial, sans-serif; letter-spacing: 0.3em; text-transform: uppercase; display: block; text-align: right; margin-bottom: -10px; color: #7d8be8; }
+  #loader {
+    position: fixed; inset: 0; z-index: 20; background: #f6f6f1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; letter-spacing: 0.3em; color: #1d35e6;
+    text-transform: uppercase; transition: opacity 0.8s ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="loader">Blue Hour</div>
+<div class="ui title">
+  <h1>Signpost</h1>
+  <p>Blue hour edition · duotone</p>
+</div>
+<div class="ui hint">
+  Drag to orbit &nbsp;·&nbsp; Scroll to zoom<br/>
+  Click a sign to nudge it
+</div>
+<div class="ui numeral"><span>issue</span>06</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ---------------------------------- rng ---------------------------------- */
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260706);
+const jitter = (amt) => (rand() * 2 - 1) * amt;
+
+/* -------------------------------- palette --------------------------------- */
+const BLUE = '#1d35e6';
+const BLUE_DEEP = '#0e1a8a';
+const PAPER = '#f6f6f1';
+const PAPER_2 = '#efefe9';
+
+/* ------------------------------- renderer -------------------------------- */
+const container = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAPER);
+scene.fog = new THREE.Fog(PAPER, 24, 60);
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 120);
+camera.position.set(8.8, 5.0, 10.0);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 3.55, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 4.5;
+controls.maxDistance = 26;
+controls.maxPolarAngle = Math.PI * 0.55;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.55;
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+/* -------------------------------- lights --------------------------------- */
+const hemi = new THREE.HemisphereLight(0xffffff, 0xe8e9f4, 0.7);
+scene.add(hemi);
+
+const key = new THREE.DirectionalLight(0xffffff, 1.9);
+key.position.set(6, 11, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 30;
+key.shadow.camera.left = -6;
+key.shadow.camera.right = 6;
+key.shadow.camera.top = 9;
+key.shadow.camera.bottom = -3;
+key.shadow.bias = -0.0002;
+key.shadow.radius = 9;
+key.shadow.blurSamples = 16;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xffffff, 0.75);
+fill.position.set(-7, 5, -4);
+scene.add(fill);
+
+/* -------------------------- gridded paper ground -------------------------- */
+const gridCanvas = document.createElement('canvas');
+gridCanvas.width = gridCanvas.height = 256;
+{
+  const g = gridCanvas.getContext('2d');
+  g.fillStyle = PAPER;
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(29, 53, 230, 0.14)';
+  g.lineWidth = 2;
+  g.strokeRect(0, 0, 256, 256);
+}
+const gridTex = new THREE.CanvasTexture(gridCanvas);
+gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
+gridTex.repeat.set(70, 70);
+gridTex.colorSpace = THREE.SRGBColorSpace;
+gridTex.anisotropy = 8;
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(45, 64),
+  new THREE.MeshStandardMaterial({ map: gridTex, color: 0xffffff, roughness: 0.96, metalness: 0 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ------------------------------- materials ------------------------------- */
+const poleMat  = new THREE.MeshStandardMaterial({ color: 0x1d35e6, metalness: 0.6,  roughness: 0.38 });
+const armMat   = new THREE.MeshStandardMaterial({ color: 0x0e1a8a, metalness: 0.6,  roughness: 0.45 });
+const clampMat = new THREE.MeshStandardMaterial({ color: 0x0b1560, metalness: 0.75, roughness: 0.34 });
+const frameMat = new THREE.MeshStandardMaterial({ color: 0xf4f4ef, metalness: 0.55, roughness: 0.32 });
+const backMat  = new THREE.MeshStandardMaterial({ color: 0xe9e9e3, metalness: 0.3,  roughness: 0.55 });
+
+/* --------------------------------- pole ---------------------------------- */
+const POLE_H = 7.4;
+const POLE_R = 0.095;
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, POLE_H, 32), poleMat);
+pole.position.y = POLE_H / 2;
+pole.castShadow = true;
+pole.receiveShadow = true;
+scene.add(pole);
+
+const cap = new THREE.Mesh(new THREE.SphereGeometry(POLE_R, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), poleMat);
+cap.position.y = POLE_H;
+cap.castShadow = true;
+scene.add(cap);
+
+const base = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R * 2.4, POLE_R * 2.9, 0.09, 32), clampMat);
+base.position.y = 0.045;
+base.castShadow = true;
+base.receiveShadow = true;
+scene.add(base);
+const baseRing = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R * 1.5, POLE_R * 1.5, 0.16, 32), clampMat);
+baseRing.position.y = 0.12;
+baseRing.castShadow = true;
+scene.add(baseRing);
+
+/* --------------------------- canvas sign artwork -------------------------- */
+const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+const SERIF = 'Didot, "Bodoni MT", Georgia, serif';
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return [c, c.getContext('2d')];
+}
+function toTexture(canvas) {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+function drawArrow(ctx, x, y, len, thick, dir = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  ctx.beginPath();
+  const headL = thick * 1.9, headW = thick * 1.75;
+  ctx.moveTo(-len / 2, -thick / 2);
+  ctx.lineTo(len / 2 - headL, -thick / 2);
+  ctx.lineTo(len / 2 - headL, -headW);
+  ctx.lineTo(len / 2, 0);
+  ctx.lineTo(len / 2 - headL, headW);
+  ctx.lineTo(len / 2 - headL, thick / 2);
+  ctx.lineTo(-len / 2, thick / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+// 4-point pinched sparkle, the collage's signature mark
+function drawSparkle(ctx, x, y, r, color, pinch = 0.14) {
+  const k = r * pinch;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y - r);
+  ctx.quadraticCurveTo(x + k, y - k, x + r, y);
+  ctx.quadraticCurveTo(x + k, y + k, x, y + r);
+  ctx.quadraticCurveTo(x - k, y + k, x - r, y);
+  ctx.quadraticCurveTo(x - k, y - k, x, y - r);
+  ctx.closePath();
+  ctx.fill();
+}
+function drawGrid(ctx, w, h, step, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  for (let x = 0; x <= w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = 0; y <= h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+}
+// halftone dot field: fn(u,v) → 0..1 dot size
+function halftone(ctx, x0, y0, w, h, fn, color, step = 16) {
+  ctx.fillStyle = color;
+  for (let y = y0 + step / 2; y < y0 + h; y += step) {
+    for (let x = x0 + step / 2; x < x0 + w; x += step) {
+      const b = fn((x - x0) / w, (y - y0) / h);
+      if (b <= 0.03) continue;
+      ctx.beginPath();
+      ctx.arc(x, y, (step * 0.46) * Math.min(1, b), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+function cloudBlob(ctx, x, y, s, color) {
+  ctx.fillStyle = color;
+  const lobes = [[0, 0, 1], [-0.9, 0.15, 0.72], [0.9, 0.18, 0.68], [-0.45, -0.42, 0.62], [0.42, -0.45, 0.66], [0, 0.3, 0.85]];
+  for (const [dx, dy, r] of lobes) {
+    ctx.beginPath();
+    ctx.arc(x + dx * s, y + dy * s, r * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/* ------ horizontal rectangles ------ */
+function artNavigate() {
+  const [c, ctx] = makeCanvas(1024, 342);
+  ctx.fillStyle = BLUE; ctx.fillRect(0, 0, 1024, 342);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 118px ${FONT}`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('NAVIGATE', 64, 180);
+  drawArrow(ctx, 890, 171, 170, 32, 1);
+  drawSparkle(ctx, 960, 60, 34, '#ffffff');
+  return c;
+}
+function artCloudsWide() {
+  const [c, ctx] = makeCanvas(1024, 376);
+  // polaroid: white border, blue sky photo inside
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1024, 376);
+  const x0 = 34, y0 = 34, w = 956, h = 276;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+  ctx.fillStyle = BLUE; ctx.fillRect(x0, y0, w, h);
+  cloudBlob(ctx, 260, 250, 78, '#ffffff');
+  cloudBlob(ctx, 640, 210, 96, '#ffffff');
+  cloudBlob(ctx, 920, 280, 66, '#ffffff');
+  cloudBlob(ctx, 60, 160, 52, '#ffffff');
+  // blue halftone shading over cloud bellies
+  halftone(ctx, x0, y0 + h * 0.55, w, h * 0.45, (u, v) => v * 0.85, BLUE, 15);
+  drawSparkle(ctx, 850, 90, 26, '#ffffff');
+  ctx.restore();
+  ctx.fillStyle = BLUE;
+  ctx.font = `500 34px ${FONT}`;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText('BLUE HOUR — 06', 986, 344);
+  return c;
+}
+function artGridSquiggle() {
+  const [c, ctx] = makeCanvas(1024, 354);
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, 1024, 354);
+  drawGrid(ctx, 1024, 354, 59, 'rgba(29,53,230,0.16)');
+  ctx.strokeStyle = BLUE; ctx.lineWidth = 9; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(50, 250);
+  ctx.bezierCurveTo(220, 60, 300, 330, 470, 180);
+  ctx.bezierCurveTo(600, 70, 660, 300, 810, 190);
+  ctx.quadraticCurveTo(900, 130, 975, 165);
+  ctx.stroke();
+  drawSparkle(ctx, 150, 92, 30, BLUE);
+  drawSparkle(ctx, 700, 96, 22, BLUE);
+  drawSparkle(ctx, 890, 270, 26, BLUE);
+  ctx.strokeStyle = BLUE; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(480, 285, 28, 0, Math.PI * 2); ctx.stroke();
+  return c;
+}
+
+/* ------ vertical rectangles ------ */
+function artPopsicle() {
+  const [c, ctx] = makeCanvas(400, 1024);
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, 400, 1024);
+  drawGrid(ctx, 400, 1024, 57, 'rgba(29,53,230,0.16)');
+  // body
+  ctx.fillStyle = BLUE;
+  ctx.beginPath();
+  ctx.roundRect(110, 90, 180, 480, 88);
+  ctx.fill();
+  // gloss
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 16; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(152, 170);
+  ctx.quadraticCurveTo(146, 300, 158, 400);
+  ctx.stroke();
+  // halftone shading on the lower body
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(110, 90, 180, 480, 88); ctx.clip();
+  halftone(ctx, 110, 330, 180, 240, (u, v) => v * 0.9, '#ffffff', 17);
+  ctx.restore();
+  // stick
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = BLUE; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.roundRect(168, 566, 64, 200, 30); ctx.fill(); ctx.stroke();
+  drawSparkle(ctx, 320, 130, 34, BLUE);
+  drawSparkle(ctx, 82, 520, 24, BLUE);
+  ctx.fillStyle = BLUE;
+  ctx.font = `bold 44px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('S U M M E R', 200, 870);
+  ctx.font = `400 34px ${SERIF}`;
+  ctx.fillText('n° 06', 200, 930);
+  return c;
+}
+function art06() {
+  const [c, ctx] = makeCanvas(400, 1024);
+  ctx.fillStyle = BLUE; ctx.fillRect(0, 0, 400, 1024);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  drawGrid(ctx, 400, 1024, 57, 'rgba(255,255,255,0.12)');
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `400 300px ${SERIF}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('0', 200, 330);
+  ctx.fillText('6', 200, 640);
+  drawSparkle(ctx, 320, 120, 30, '#ffffff');
+  ctx.font = `bold 30px ${FONT}`;
+  ctx.fillText('B L U E   H O U R', 200, 900);
+  return c;
+}
+
+/* ------ squares ------ */
+function artSunflower() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = BLUE; ctx.fillRect(0, 0, 640, 640);
+  const cx = 320, cy = 320;
+  // two rings of white petals
+  for (let ring = 0; ring < 2; ring++) {
+    const n = ring === 0 ? 14 : 12;
+    const R = ring === 0 ? 210 : 175;
+    const len = ring === 0 ? 118 : 96;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + ring * 0.24;
+      ctx.save();
+      ctx.translate(cx + Math.cos(a) * R * 0.62, cy + Math.sin(a) * R * 0.62);
+      ctx.rotate(a);
+      ctx.fillStyle = ring === 0 ? '#ffffff' : 'rgba(255,255,255,0.88)';
+      ctx.beginPath();
+      ctx.ellipse(len * 0.55, 0, len, 34, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  // blue center with dotted white rings
+  ctx.fillStyle = BLUE;
+  ctx.beginPath(); ctx.arc(cx, cy, 128, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.arc(cx, cy, 126, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  for (let r = 18; r < 120; r += 26) {
+    const n = Math.max(6, Math.round(r * 0.5));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + r;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  return c;
+}
+function artBlueHour() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = BLUE; ctx.fillRect(0, 0, 640, 640);
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 10;
+  ctx.strokeRect(30, 30, 580, 580);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 128px ${FONT}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('BLUE', 320, 250);
+  ctx.fillText('HOUR', 320, 396);
+  drawSparkle(ctx, 530, 120, 40, '#ffffff');
+  drawSparkle(ctx, 110, 520, 26, '#ffffff');
+  ctx.font = `400 44px ${SERIF}`;
+  ctx.fillText('— est. 06 —', 320, 530);
+  return c;
+}
+
+/* ------ circles ------ */
+function artStarburst() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = BLUE;
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.fill();
+  const cx = 320, cy = 320;
+  ctx.fillStyle = '#ffffff';
+  // 8-spike starburst, alternating long/short thin kites
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const L = i % 2 === 0 ? 250 : 150;
+    const W = i % 2 === 0 ? 26 : 18;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.moveTo(0, -W);
+    ctx.lineTo(L, 0);
+    ctx.lineTo(0, W);
+    ctx.lineTo(-L * 0.2, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(cx + 6, cy - 4, 286, 0, Math.PI * 2); ctx.stroke();
+  return c;
+}
+function artCloudPorthole() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = BLUE;
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.clip();
+  cloudBlob(ctx, 200, 430, 92, '#ffffff');
+  cloudBlob(ctx, 500, 350, 74, '#ffffff');
+  cloudBlob(ctx, 380, 560, 100, '#ffffff');
+  halftone(ctx, 0, 350, 640, 290, (u, v) => v * 0.8, BLUE, 16);
+  drawSparkle(ctx, 470, 130, 34, '#ffffff');
+  drawSparkle(ctx, 150, 200, 20, '#ffffff');
+  ctx.restore();
+  return c;
+}
+function artOrbHalftone() {
+  const [c, ctx] = makeCanvas(640, 640);
+  ctx.fillStyle = BLUE;
+  ctx.beginPath(); ctx.arc(320, 320, 320, 0, Math.PI * 2); ctx.fill();
+  // dotted sphere — highlight upper-left, like a halftone moon
+  halftone(ctx, 40, 40, 560, 560, (u, v) => {
+    const dx = u - 0.5, dy = v - 0.5;
+    const d = Math.sqrt(dx * dx + dy * dy) * 2;
+    if (d > 1) return 0;
+    const hx = u - 0.34, hy = v - 0.32;
+    const hl = Math.sqrt(hx * hx + hy * hy) * 1.8;
+    return Math.max(0, 1 - hl);
+  }, '#ffffff', 20);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(320, 320, 288, 0, Math.PI * 2); ctx.stroke();
+  return c;
+}
+
+/* ------ triangles (fit to bounding box) ------ */
+function artTriPaper() {
+  const [c, ctx] = makeCanvas(640, 576);
+  const apex = [320, 26], bl = [30, 546], br = [610, 546];
+  const cx0 = 320, cy0 = 372;
+  const tri = (inset) => {
+    ctx.beginPath();
+    [apex, br, bl].forEach((p, i) => {
+      const x = p[0] + (cx0 - p[0]) * inset;
+      const y = p[1] + (cy0 - p[1]) * inset;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  };
+  ctx.fillStyle = PAPER; tri(0); ctx.fill();
+  ctx.save(); tri(0); ctx.clip();
+  drawGrid(ctx, 640, 576, 56, 'rgba(29,53,230,0.16)');
+  ctx.restore();
+  ctx.fillStyle = BLUE; tri(0.1); ctx.fill();
+  ctx.fillStyle = PAPER; tri(0.3); ctx.fill();
+  drawSparkle(ctx, 320, 400, 52, BLUE);
+  return c;
+}
+function artTriHalftone() {
+  const [c, ctx] = makeCanvas(640, 576);
+  const apex = [320, 26], bl = [30, 546], br = [610, 546];
+  const cx0 = 320, cy0 = 372;
+  const tri = (inset) => {
+    ctx.beginPath();
+    [apex, br, bl].forEach((p, i) => {
+      const x = p[0] + (cx0 - p[0]) * inset;
+      const y = p[1] + (cy0 - p[1]) * inset;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  };
+  ctx.fillStyle = BLUE; tri(0); ctx.fill();
+  ctx.save(); tri(0.06); ctx.clip();
+  halftone(ctx, 30, 26, 580, 520, (u, v) => v * 0.95, '#ffffff', 17);
+  ctx.restore();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 7;
+  tri(0.16); ctx.stroke();
+  return c;
+}
+
+/* --------------------------- geometry helpers ----------------------------- */
+const SIGN_T = 0.035;
+const FRAME_W = 0.045;
+const FRAME_D = SIGN_T + 0.022;
+
+function remapUVsToBounds(geometry) {
+  geometry.computeBoundingBox();
+  const bb = geometry.boundingBox;
+  const sx = bb.max.x - bb.min.x, sy = bb.max.y - bb.min.y;
+  const pos = geometry.attributes.position;
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, (pos.getX(i) - bb.min.x) / sx, (pos.getY(i) - bb.min.y) / sy);
+  }
+  uv.needsUpdate = true;
+}
+
+function roundedPolygonShape(points, radius) {
+  const shape = new THREE.Shape();
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const p = points[i];
+    const prev = points[(i + n - 1) % n];
+    const next = points[(i + 1) % n];
+    const dPrev = p.clone().sub(prev).normalize();
+    const dNext = next.clone().sub(p).normalize();
+    const pA = p.clone().sub(dPrev.clone().multiplyScalar(radius));
+    const pB = p.clone().add(dNext.clone().multiplyScalar(radius));
+    if (i === 0) shape.moveTo(pA.x, pA.y); else shape.lineTo(pA.x, pA.y);
+    shape.quadraticCurveTo(p.x, p.y, pB.x, pB.y);
+  }
+  shape.closePath();
+  return shape;
+}
+
+/* ------------------------------ sign builders ----------------------------- */
+const faceMeshes = [];
+
+function faceMaterial(canvas) {
+  return new THREE.MeshStandardMaterial({
+    map: toTexture(canvas),
+    metalness: 0.2,
+    roughness: 0.5,
+  });
+}
+
+function buildRectSign(w, h, canvas) {
+  const g = new THREE.Group();
+  const faceMat = faceMaterial(canvas);
+  const panel = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, SIGN_T),
+    [backMat, backMat, backMat, backMat, faceMat, backMat]
+  );
+  panel.position.z = SIGN_T / 2;
+  panel.castShadow = true;
+  panel.receiveShadow = true;
+  g.add(panel);
+  faceMeshes.push(panel);
+
+  const bars = [
+    [w + FRAME_W * 2, FRAME_W, 0, h / 2 + FRAME_W / 2],
+    [w + FRAME_W * 2, FRAME_W, 0, -h / 2 - FRAME_W / 2],
+    [FRAME_W, h, -w / 2 - FRAME_W / 2, 0],
+    [FRAME_W, h, w / 2 + FRAME_W / 2, 0],
+  ];
+  for (const [bw, bh, bx, by] of bars) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, FRAME_D), frameMat);
+    bar.position.set(bx, by, SIGN_T / 2);
+    bar.castShadow = true;
+    bar.receiveShadow = true;
+    g.add(bar);
+  }
+  return g;
+}
+
+function buildCircleSign(r, canvas) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, SIGN_T, 48), backMat);
+  body.rotation.x = Math.PI / 2;
+  body.position.z = SIGN_T / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+  const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.995, 48), faceMaterial(canvas));
+  face.position.z = SIGN_T + 0.002;
+  face.receiveShadow = true;
+  g.add(face);
+  faceMeshes.push(face);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r + 0.012, 0.032, 20, 64), frameMat);
+  rim.position.z = SIGN_T / 2;
+  rim.castShadow = true;
+  rim.receiveShadow = true;
+  g.add(rim);
+  return g;
+}
+
+function buildTriangleSign(size, canvas) {
+  const g = new THREE.Group();
+  const R = size * 0.62;
+  const pts = [90, 210, 330].map((deg) => {
+    const a = (deg * Math.PI) / 180;
+    return new THREE.Vector2(Math.cos(a) * R, Math.sin(a) * R);
+  });
+  const shape = roundedPolygonShape(pts, size * 0.09);
+
+  const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: SIGN_T, bevelEnabled: false, curveSegments: 10 });
+  const body = new THREE.Mesh(bodyGeo, backMat);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  const faceGeo = new THREE.ShapeGeometry(shape, 10);
+  remapUVsToBounds(faceGeo);
+  const face = new THREE.Mesh(faceGeo, faceMaterial(canvas));
+  face.scale.set(0.985, 0.985, 1);
+  face.position.z = SIGN_T + 0.002;
+  face.receiveShadow = true;
+  g.add(face);
+  faceMeshes.push(face);
+
+  const outline = shape.getPoints(48).map((p) => new THREE.Vector3(p.x, p.y, SIGN_T / 2));
+  const curve = new THREE.CatmullRomCurve3(outline, true, 'catmullrom', 0.0);
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 140, 0.03, 12, true), frameMat);
+  tube.castShadow = true;
+  tube.receiveShadow = true;
+  g.add(tube);
+  return g;
+}
+
+/* --------------------------- pole hardware bits --------------------------- */
+function addClampRing(y, extraBolt = true) {
+  const ring = new THREE.Mesh(
+    new THREE.CylinderGeometry(POLE_R + 0.022, POLE_R + 0.022, 0.085, 32),
+    clampMat
+  );
+  ring.position.y = y;
+  ring.castShadow = true;
+  ring.receiveShadow = true;
+  scene.add(ring);
+  if (extraBolt) {
+    const bolt = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.045), clampMat);
+    const a = rand() * Math.PI * 2;
+    bolt.position.set(Math.cos(a) * (POLE_R + 0.035), y, Math.sin(a) * (POLE_R + 0.035));
+    bolt.castShadow = true;
+    scene.add(bolt);
+  }
+  return ring;
+}
+
+/* ------------------------------- mounting --------------------------------- */
+const signs = [];
+
+function mountSign(group, { height, angleDeg, dist, tiltZ = 0, tiltX = 0, twistY = 0 }) {
+  const pivot = new THREE.Group();
+  pivot.position.y = height;
+  pivot.rotation.y = (angleDeg * Math.PI) / 180;
+  scene.add(pivot);
+
+  const holder = new THREE.Group();
+  holder.position.z = POLE_R + dist;
+  holder.rotation.set(tiltX, twistY, tiltZ);
+  pivot.add(holder);
+  holder.add(group);
+
+  addClampRing(height);
+
+  const armLen = dist + POLE_R * 0.7;
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, armLen, 16), armMat);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.z = POLE_R * 0.3 + armLen / 2;
+  arm.castShadow = true;
+  arm.receiveShadow = true;
+  pivot.add(arm);
+
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.02), armMat);
+  plate.position.z = -0.01;
+  group.add(plate);
+
+  signs.push({ pivot, holder, group, wobble: 0, wobbleVel: 0, phase: rand() * Math.PI * 2 });
+  return pivot;
+}
+
+/* ------------------------------ composition ------------------------------- */
+const GOLDEN = 137.508;
+let angleCursor = rand() * 360;
+function nextAngle() {
+  angleCursor += GOLDEN + jitter(16);
+  return angleCursor % 360;
+}
+
+const composition = [
+  { build: () => buildRectSign(1.55, 0.52, artNavigate()),     h: 5.95 },
+  { build: () => buildTriangleSign(0.95, artTriPaper()),       h: 6.55 },
+  { build: () => buildCircleSign(0.42, artStarburst()),        h: 5.35 },
+  { build: () => buildRectSign(1.5, 0.55, artCloudsWide()),    h: 4.85 },
+  { build: () => buildRectSign(0.5, 1.35, artPopsicle()),      h: 4.28 },
+  { build: () => buildRectSign(0.72, 0.72, artSunflower()),    h: 3.72 },
+  { build: () => buildCircleSign(0.4, artCloudPorthole()),     h: 3.3 },
+  { build: () => buildRectSign(1.45, 0.5, artGridSquiggle()),  h: 2.78 },
+  { build: () => buildTriangleSign(0.9, artTriHalftone()),     h: 2.25 },
+  { build: () => buildRectSign(0.48, 1.3, art06()),            h: 1.75 },
+  { build: () => buildCircleSign(0.38, artOrbHalftone()),      h: 1.15 },
+  { build: () => buildRectSign(0.68, 0.68, artBlueHour()),     h: 0.72 },
+];
+
+for (const item of composition) {
+  const group = item.build();
+  mountSign(group, {
+    height: item.h + jitter(0.16),
+    angleDeg: nextAngle(),
+    dist: 0.3 + rand() * 0.42,
+    tiltZ: jitter(0.045),
+    tiltX: jitter(0.03),
+    twistY: jitter(0.1),
+  });
+}
+
+addClampRing(0.45, false);
+addClampRing(2.52);
+addClampRing(4.6, false);
+addClampRing(7.05);
+
+/* ------------------------- floating collage props ------------------------- */
+const props = [];
+
+function sparkleShape3D(r) {
+  const k = r * 0.14;
+  const s = new THREE.Shape();
+  s.moveTo(0, r);
+  s.quadraticCurveTo(k, k, r, 0);
+  s.quadraticCurveTo(k, -k, 0, -r);
+  s.quadraticCurveTo(-k, -k, -r, 0);
+  s.quadraticCurveTo(-k, k, 0, r);
+  return s;
+}
+const sparkleWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.3, roughness: 0.4 });
+const sparkleBlue = new THREE.MeshStandardMaterial({ color: 0x1d35e6, metalness: 0.4, roughness: 0.4 });
+
+function addSparkleProp(x, y, z, r, blue = true) {
+  const geo = new THREE.ExtrudeGeometry(sparkleShape3D(r), { depth: r * 0.1, bevelEnabled: false });
+  const m = new THREE.Mesh(geo, blue ? sparkleBlue : sparkleWhite);
+  if (!blue) {
+    // blue backing sparkle so white reads on white
+    const back = new THREE.Mesh(geo, sparkleBlue);
+    back.scale.setScalar(1.22);
+    back.position.z = -r * 0.03;
+    m.add(back);
+  }
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  scene.add(m);
+  props.push({ mesh: m, spin: 0.25 + rand() * 0.3, bob: 0.5 + rand(), phase: rand() * Math.PI * 2, y0: y });
+  return m;
+}
+addSparkleProp(1.9, 6.1, -0.7, 0.22, true);
+addSparkleProp(-1.6, 4.7, 1.2, 0.16, false);
+addSparkleProp(1.4, 2.1, 1.5, 0.13, true);
+addSparkleProp(-1.9, 1.2, -1.1, 0.18, false);
+addSparkleProp(0.4, 7.1, 1.6, 0.1, true);
+
+const ringMat = new THREE.MeshStandardMaterial({ color: 0x1d35e6, metalness: 0.5, roughness: 0.4 });
+function addRingProp(x, y, z, r) {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 10, 64), ringMat);
+  m.position.set(x, y, z);
+  m.rotation.set(rand() * Math.PI, rand() * Math.PI, 0);
+  m.castShadow = true;
+  scene.add(m);
+  props.push({ mesh: m, spin: 0.12 + rand() * 0.15, bob: 0.4 + rand() * 0.6, phase: rand() * Math.PI * 2, y0: y });
+}
+addRingProp(-2.1, 5.6, -0.4, 0.42);
+addRingProp(2.2, 3.4, -1.3, 0.3);
+
+// hand-drawn blue line meandering on the floor
+{
+  const pts = [];
+  let a = rand() * Math.PI * 2;
+  for (let i = 0; i <= 10; i++) {
+    const r = 1.1 + i * 0.34 + jitter(0.22);
+    a += 0.55 + jitter(0.28);
+    pts.push(new THREE.Vector3(Math.cos(a) * r, 0.015, Math.sin(a) * r));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 160, 0.014, 8, false), ringMat);
+  scene.add(tube);
+}
+
+/* ------------------------------ interaction ------------------------------- */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(-10, -10);
+let hovered = null;
+let pointerDown = { x: 0, y: 0, moved: false };
+
+function findSignFor(object) {
+  return signs.find((s) => {
+    let hit = false;
+    s.group.traverse((o) => { if (o === object) hit = true; });
+    return hit;
+  });
+}
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  if (Math.abs(e.clientX - pointerDown.x) + Math.abs(e.clientY - pointerDown.y) > 6) {
+    pointerDown.moved = true;
+  }
+});
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pointerDown = { x: e.clientX, y: e.clientY, moved: false };
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (pointerDown.moved) return;
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(faceMeshes, false);
+  const s = hits.length ? findSignFor(hits[0].object) : null;
+  if (s) s.wobbleVel += 3.2 + rand() * 1.5;
+});
+
+/* -------------------------------- animate --------------------------------- */
+const clock = new THREE.Clock();
+let introT = 0;
+for (const s of signs) s.group.scale.setScalar(0.0001);
+
+function easeOutBack(t) {
+  const c1 = 1.30158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  introT += dt;
+
+  signs.forEach((s, i) => {
+    const local = THREE.MathUtils.clamp((introT - 0.35 - i * 0.09) / 0.55, 0, 1);
+    const k = local >= 1 ? 1 : Math.max(0.0001, easeOutBack(local));
+    s.group.scale.setScalar(k);
+  });
+
+  for (const s of signs) {
+    const stiffness = 26, damping = 4.2;
+    s.wobbleVel += -s.wobble * stiffness * dt - s.wobbleVel * damping * dt;
+    s.wobble += s.wobbleVel * dt;
+    const idle = Math.sin(t * 0.7 + s.phase) * 0.006;
+    s.holder.rotation.z = (s.holder.userData.baseZ ??= s.holder.rotation.z) + idle;
+    s.group.rotation.x = s.wobble * 0.12;
+  }
+
+  for (const p of props) {
+    p.mesh.rotation.z += p.spin * dt;
+    p.mesh.position.y = p.y0 + Math.sin(t * p.bob + p.phase) * 0.08;
+  }
+
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(faceMeshes, false);
+  const found = hits.length ? findSignFor(hits[0].object) : null;
+  if (found !== hovered) {
+    hovered = found;
+    document.body.style.cursor = hovered ? 'pointer' : 'default';
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+document.getElementById('loader').classList.add('done');
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
