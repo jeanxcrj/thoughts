@@ -232,9 +232,13 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.minDistance = 3.2;
 controls.maxDistance = 26;
+controls.minPolarAngle = Math.PI * 0.22;
 controls.maxPolarAngle = Math.PI * 0.55;
+controls.enablePan = false;      // never slide the target off the pole
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.55;
+// keep the world up-axis locked so the pole is always dead vertical on screen
+camera.up.set(0, 1, 0);
 
 // Subtle image-based reflections for the metals.
 const pmrem = new THREE.PMREMGenerator(renderer);
@@ -1103,6 +1107,9 @@ function animate() {
     }
   }
 
+  // hard-anchor the orbit target to the pole axis so the pole never leans
+  controls.target.x = 0;
+  controls.target.z = 0;
   controls.update();
   renderer.render(scene, camera);
 }
