@@ -213,6 +213,7 @@
   .pg-content .reads a { color: #5b46b8; text-decoration: none; border-bottom: 1px solid rgba(124,102,223,0.35); }
   .pg-content .reads a:hover { border-bottom-color: #5b46b8; }
   .pg-content .reads .src { color: #9b9b96; }
+  .pg-content .reads .noref { color: #37352f; }
   .pg-content .divider { height: 1px; background: #ededeb; margin: 22px 0; }
 </style>
 <script type="importmap">
@@ -923,7 +924,28 @@ And the purpose? It's never just been about what I make, but about why I keep ma
       { t: 'quote', x: `Maybe part of rethinking humanitarian design means rethinking design culture itself. Maybe inclusion and ethics start not just in our process, but in our taste…` },
     ],
   },
-  pole: soon('🪧', 'the GALLERY blade'),
+  eames: {
+    icon: '🪑', title: 'Is Design Just Problem Solving?',
+    date: 'March 11, 2025', mount: 'the GALLERY blade', tags: [['design', 'peri'], ['reflection', 'lilac'], ['school', 'gray']],
+    blocks: [
+      { t: 'reads', items: [
+        { label: 'A Prefab House That Dazzles Still', src: 'The New York Times' },
+        { label: 'Life on Planet Eames: Flexible, Colorful, Pleasurable', src: 'Metropolis' },
+        { label: `Putting Ray Eames's Design Contributions in Context`, src: 'Metropolis' },
+        { label: 'The Best for the Most for the Least', src: 'The Paris Review' },
+        { label: `Why Design is Not Problem Solving + Design Thinking Isn't Always the Answer`, src: 'AIGA Eye on Design' },
+      ]},
+      { t: 'p', x: `After reading these articles and websites, I found myself reflecting on how design is often framed around problem-solving, storytelling, branding, philosophy, etc. It ultimately brought me back to the question we discussed during our first class, what is design? Across these discussions, one recurring theme emerged: design is not just about creating solutions but about shaping how people interact with the world. Each article presented a different facet of design's evolving role, but the last article, "Why Design is Not Problem Solving + Design Thinking Isn't Always the Answer", stood out to me the most. It questioned a notion I've often taken for granted, that designers are, first and foremost, problem solvers.` },
+      { t: 'p', x: `The first few articles, particularly "Life on Planet Eames" and "The Best for the Most for the Least", demonstrated how Charles and Ray Eames expanded design beyond physical objects into filmmaking, architecture, and multimedia storytelling. It was fascinating to me how vast their field of design spanned, and it even made me question the notion of choosing tracks at CMU. I came into the school with a relatively open mind, and I really want to explore all tracks, though I'm not at all against the idea of diving deep into one specifically. In particular, I want to embrace the versatility design can capture by not limiting myself to my chosen track but expanding into others as well. Further, I found that the philosophy, design as hospitality, was deeply embedded in every project they touched. Powers of Ten (covered in The Best for the Most for the Least) encapsulates this best, turning a seemingly simple picnic scene into a profound scale exploration. The Eameses weren't just making things but were shifting perspectives.` },
+      { t: 'p', x: `Additionally, Putting Ray Eames's Design Contributions in Context was important in recognizing how collaborative design processes often overlook individual contributors. Ray, despite her equal role, was historically overshadowed by Charles. This article made me think about the ways in which the industry continues to favor singular, visionary figures over the collective process. The Eames Office's conscious self-branding, as highlighted in Life on Planet Eames, also raised questions about whether designers today are more focused on crafting their image rather than engaging in meaningful, substantive work.` },
+      { t: 'p', x: `One of the most interesting critiques came from "The Best for the Most for the Least", which pointed out that while the Eameses were pioneers of user-centered design, they were also marketing themselves and their work within a capitalist structure. Their films, particularly those created for IBM (Think, The Information Machine), were instrumental in shaping public perceptions of technology, making computers feel approachable and less threatening. While their intention was noble, it also highlights the reality that much of design serves corporate interests, something that felt particularly relevant when I got to the last article.` },
+      { t: 'p', x: `I found the last article so thought-provoking because I've always associated design with problem-solving. Whether working on apps or branding projects, my mindset has often been: What's the issue, and how do I fix it? But Why Design is Not Problem Solving challenged that framework, arguing that this approach is too narrow and often misleading. One of the most striking arguments in the article was David Rudnick's critique that designers focus more on offering solutions to clients rather than to the audience. He argues that the industry has become more about manipulating consumer perception rather than creating meaningful change. This reminded me of the Eameses' corporate partnerships; while their work was visually stunning and conceptually rich, it still played into branding and marketing. This raises a difficult question: How much of design is truly about innovation, and how much of it is about making a product (or company) appear desirable?` },
+      { t: 'p', x: `If the Eameses taught me that design is about experience and storytelling, why design is not problem solving forced me to question the role of design altogether. Should designers continue thinking of themselves as problem solvers, or should they embrace a more open-ended, systems-based approach? Is every "problem" even worth solving, or are designers merely reinforcing existing systems by addressing surface-level concerns? Moving forward, I want to integrate some of these ideas into my own work, thinking not just about the immediate deliverables but about the broader context and long-term impact of what I design. Instead of seeing every project as a "problem" to be solved, I want to explore more speculative, critical, and systemic approaches to design.` },
+      { t: 'p', x: `If anything, these articles made me realize that good design isn't just about making things better but about questioning what "better" even means…` },
+      { t: 'quote', x: `What is design? There's no definitive answer.
+And I find that ambiguity so beautiful and exciting.` },
+    ],
+  },
   tuesday: soon('☕', 'the 30 disc'),
   drift: soon('🌊', 'the ONE WAY sign'),
   elevators: soon('🛗', 'the arrow disc'),
@@ -946,7 +968,7 @@ function nextAngle() {
 
 const composition = [
   { build: () => buildTriangleSign(0.95, artWarning()),                     h: 6.55, post: WRITINGS.manifesto },
-  { build: () => buildRectSign(1.55, 0.52, artDirectionBlue('GALLERY', 1)), h: 5.95, post: WRITINGS.pole },
+  { build: () => buildRectSign(1.55, 0.52, artDirectionBlue('GALLERY', 1)), h: 5.95, post: WRITINGS.eames },
   { build: () => buildCircleSign(0.42, artSpeed30()),                       h: 5.35, post: WRITINGS.tuesday },
   { build: () => buildRectSign(1.45, 0.5, artMuseumBlack()),                h: 4.85, post: WRITINGS.elitism },
   { build: () => buildRectSign(0.5, 1.35, artOneWay()),                     h: 4.28, post: WRITINGS.drift },
@@ -1001,10 +1023,16 @@ function renderBlocks(blocks) {
       el.className = 'reads';
       for (const it of b.items) {
         const row = document.createElement('div');
-        const a = document.createElement('a');
-        a.href = it.href;
-        a.target = '_blank';
-        a.rel = 'noopener';
+        let a;
+        if (it.href) {
+          a = document.createElement('a');
+          a.href = it.href;
+          a.target = '_blank';
+          a.rel = 'noopener';
+        } else {
+          a = document.createElement('span');
+          a.className = 'noref';
+        }
         a.textContent = it.label;
         row.appendChild(a);
         if (it.src) {
