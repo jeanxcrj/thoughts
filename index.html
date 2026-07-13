@@ -925,7 +925,7 @@ And the purpose? It's never just been about what I make, but about why I keep ma
     ],
   },
   eames: {
-    icon: '🪑', title: 'Is Design Just Problem Solving?',
+    icon: '🪑', title: 'Defining Design?',
     date: 'March 11, 2025', mount: 'the GALLERY blade', tags: [['design', 'peri'], ['reflection', 'lilac'], ['school', 'gray']],
     blocks: [
       { t: 'reads', items: [
@@ -1100,23 +1100,30 @@ function unfocus() {
 {
   const list = document.getElementById('sb-list');
 
-  // only real writings, in pole order; each gets an accent swatch
-  const SWATCHES = ['#a6e64d', '#67d4bb', '#8f8fe0', '#f2b63d', '#e8547e'];
-  const written = signs.filter((s) => s.post && !s.post.placeholder);
-  written.forEach((sign, i) => {
+  // explicit sidebar order + accent swatch per writing
+  const SB_ORDER = [
+    ['elitism', '#a6e64d'],   // green
+    ['purpose', '#67d4bb'],   // teal
+    ['isitart', '#8f8fe0'],   // periwinkle
+    ['eames',   '#6b5bc4'],   // slightly darker purple
+  ];
+  SB_ORDER.forEach(([key, color], i) => {
+    const post = WRITINGS[key];
+    const sign = signs.find((s) => s.post === post);
+    if (!sign) return;
     const item = document.createElement('div');
     item.className = 'sb-item';
-    item.style.setProperty('--c', SWATCHES[i % SWATCHES.length]);
+    item.style.setProperty('--c', color);
     item.style.setProperty('--i', i);
     const sw = document.createElement('span');
     sw.className = 'sw';
     const t = document.createElement('span');
     t.className = 't';
-    t.textContent = sign.post.title;
+    t.textContent = post.title;
     item.append(sw, t);
     item.addEventListener('mouseenter', () => focusOn(sign));
     item.addEventListener('mouseleave', unfocus);
-    item.addEventListener('click', () => openPage(sign.post));
+    item.addEventListener('click', () => openPage(post));
     list.appendChild(item);
   });
 
